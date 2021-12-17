@@ -36,12 +36,60 @@
 ## Simple talker demo that listens to std_msgs/Strings published
 ## to the 'chatter' topic
 
+from numpy.core.fromnumeric import mean
 import rospy
+import time
+import numpy as np
+#from sklearn import mixture
+from sklearn.mixture import BayesianGaussianMixture
 from std_msgs.msg import String
+from std_msgs.msg import Float64MultiArray
 from geometry_msgs.msg import PoseArray
 
 def callback(data):
+    pubMean = rospy.Publisher('gmm_mean', Float64MultiArray, queue_size=10) # GMM Mean
+    pubCovar = rospy.Publisher('gmm_covar', Float64MultiArray, queue_size=10) # GMM Covariance
+    start = time.time()
     rospy.loginfo(rospy.get_caller_id() + 'Number of particles %d', len(data.poses))
+    #initialize empty list
+    PoseForGmmArr = []
+    gmm_mean = Float64MultiArray()
+    gmm_covar = Float64MultiArray()
+    for i in range(len(data.poses)):
+        newrow = ([data.poses[i].position.x, data.poses[i].position.y])
+        PoseForGmmArr.append(newrow)
+    PoseForGmm = np.array(PoseForGmmArr)
+    print(PoseForGmm.shape)
+    #dpgmm = mixture.BayesianGaussianMixture(n_components=5, covariance_type="full").fit(X)
+    dpgmm = BayesianGaussianMixture(n_components=5, covariance_type="full").fit(X)
+
+    end = time.time()
+    gmm_mean = toMultiArray(dpgmm.means_)
+    gmm_covar = toMultiArray(dpgmm.covariances_)
+
+    pubMean.publish(gmm_mean)
+    pubCovar.publish(gmm_covar)
+    # total time taken
+    
+    print("Runtime of the program is %f" %(end - start))
+    #Fit the GMM
+
+    #return the GMM parameters
+
+    #plot/print
+
+#def gmm(poses):
+
+def toMultiArray(matrix):
+    temp = Float64MultiArray()
+    #write layout
+    for i in range(np.size(np.shape(matrix))):
+        temp.layout.dim[i].size = matrix.shape(i)
+
+    #write data
+    temp.data = matrix
+
+    return temp
 
 def listener():
 
