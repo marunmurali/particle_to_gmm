@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # Software License Agreement (BSD License)
 #
 # Copyright (c) 2008, Willow Garage, Inc.
@@ -40,11 +40,27 @@ from numpy.core.fromnumeric import mean
 import rospy
 import time
 import numpy as np
-#from sklearn import mixture
-from sklearn.mixture import BayesianGaussianMixture
+from sklearn import mixture
+#from sklearn.mixture import BayesianGaussianMixture
 from std_msgs.msg import String
-from std_msgs.msg import Float64MultiArray
+from std_msgs.msg import MultiArrayDimension
+from std_msgs.msg import (Float32MultiArray, Float64MultiArray,
+                          Int8MultiArray, Int16MultiArray,
+                          Int32MultiArray, Int64MultiArray,
+                          UInt8MultiArray, UInt16MultiArray,
+                          UInt32MultiArray, UInt64MultiArray)
 from geometry_msgs.msg import PoseArray
+from functools import partial
+
+def _numpy_to_multiarray(multiarray_type, np_array):
+    multiarray = multiarray_type()
+    multiarray.layout.dim = [MultiArrayDimension('dim%d' % i,
+                                                np_array.shape[i],
+                                                np_array.shape[i] * np_array.dtype.itemsize) for i in range(np_array.ndim)];
+    multiarray.data = np_array.reshape([1, -1])[0].tolist();
+    return multiarray
+
+to_multiarray_f64 = partial(_numpy_to_multiarray, Float64MultiArray)
 
 def callback(data):
     pubMean = rospy.Publisher('gmm_mean', Float64MultiArray, queue_size=10) # GMM Mean
@@ -55,39 +71,49 @@ def callback(data):
     PoseForGmmArr = []
     gmm_mean = Float64MultiArray()
     gmm_covar = Float64MultiArray()
+    #gmm_mean = []
+    #gmm_covar = []
     for i in range(len(data.poses)):
         newrow = ([data.poses[i].position.x, data.poses[i].position.y])
         PoseForGmmArr.append(newrow)
     PoseForGmm = np.array(PoseForGmmArr)
-    print(PoseForGmm.shape)
-    #dpgmm = mixture.BayesianGaussianMixture(n_components=5, covariance_type="full").fit(X)
-    dpgmm = BayesianGaussianMixture(n_components=5, covariance_type="full").fit(X)
-
-    end = time.time()
-    gmm_mean = toMultiArray(dpgmm.means_)
-    gmm_covar = toMultiArray(dpgmm.covariances_)
-
+    #print(PoseForGmm.shape)
+    #dpgmm = mixture.BayesianGaussianMixture(n_components=5, covariance_type="full").fit(PoseForGmm)
+    #dpgmm = BayesianGaussianMixture(n_components=5, covariance_type="full").fit(PoseForGmm)
+    dpgmm = mixture.GaussianMixture(n_components=5, covariance_type="full").fit(PoseForGmm)
+    
+    # gmm_mean = toMultiArray(dpgmm.means_)
+    # gmm_covar = toMultiArray(dpgmm.covariances_)
+    gmm_mean = to_multiarray_f64(dpgmm.means_)
+    gmm_covar = to_multiarray_f64(dpgmm.covariances_)
     pubMean.publish(gmm_mean)
     pubCovar.publish(gmm_covar)
-    # total time taken
     
+    # total time taken
+    end = time.time()
     print("Runtime of the program is %f" %(end - start))
-    #Fit the GMM
-
-    #return the GMM parameters
-
-    #plot/print
-
-#def gmm(poses):
 
 def toMultiArray(matrix):
     temp = Float64MultiArray()
+    #TODO empty the temp 
     #write layout
     for i in range(np.size(np.shape(matrix))):
-        temp.layout.dim[i].size = matrix.shape(i)
-
+        shapeArr = np.shape(matrix)
+        # print("loop from to")
+        # print(i)
+        # print(np.size(np.shape(matrix)))
+        # print("shape")
+        # print(np.shape(matrix))
+        # print("element")
+        # print(shapeArr[i])
+        # print(np.shape(matrix))
+        temp.layout.dim.append(MultiArrayDimension())
+        temp.layout.dim[i].label = "dim"+str(i)
+        temp.layout.dim[i].size = shapeArr[i]
+        temp.layout.dim[i].stride = matrix.strides[i]
+    temp.layout.data_offset = 0
     #write data
-    temp.data = matrix
+    temp.data = matrix.flatten()
 
     return temp
 
