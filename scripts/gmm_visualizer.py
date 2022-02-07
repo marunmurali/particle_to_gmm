@@ -175,6 +175,8 @@ if __name__ == '__main__':
     plt.ion()
     node = MyNode()
     plt.show()
+
+    plt.clf()
     plt.close()
 
     # spin() simply keeps python from exiting until this node is stopped
