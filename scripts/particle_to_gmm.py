@@ -86,8 +86,12 @@ def callback(data):
     # print(PoseForGmm.shape)
     #dpgmm = mixture.BayesianGaussianMixture(n_components=5, covariance_type="full").fit(PoseForGmm)
     #dpgmm = BayesianGaussianMixture(n_components=5, covariance_type="full").fit(PoseForGmm)
+    # n_components is maximum in Bayesian
+
     dpgmm = mixture.GaussianMixture(
         n_components=5, covariance_type="full").fit(PoseForGmm)
+
+    # note: reducing n_components
 
     # gmm_mean = toMultiArray(dpgmm.means_)
     # gmm_covar = toMultiArray(dpgmm.covariances_)
