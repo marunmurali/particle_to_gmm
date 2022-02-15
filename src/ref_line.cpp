@@ -74,14 +74,14 @@ int main(int argc, char **argv)
         // Create the vertices for the points and lines
 
         geometry_msgs::Point p;
-        p.x = n.getParam("orient_x"); 
-        p.y = n.getParam("orient_y"); 
+        n.getParam("orient_x", p.x); 
+        n.getParam("orient_y", p.y); 
         p.z = 0.1;
 
         line_strip.points.push_back(p);
 
-        p.x = n.getParam("goal_x"); 
-        p.y = n.getParam("goal_y"); 
+        n.getParam("goal_x", p.x); 
+        n.getParam("goal_y", p.y); 
 
         line_strip.points.push_back(p);
 

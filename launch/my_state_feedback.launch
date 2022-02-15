@@ -4,10 +4,15 @@
 
   <arg name="using_gmm" default="true"/>
 
-  <arg name="orient_x" default="-29.0157584068721"/>
-  <arg name="orient_y" default="-7.79519393496102"/>
-  <arg name="goal_x" default="-29.8366912334359"/>
-  <arg name="goal_y" default="4.94099518011244"/>
+  <!-- <arg name="orient_x" default="-29.0"/>
+  <arg name="orient_y" default="-7.8"/>
+  <arg name="goal_x" default="-30.0"/>
+  <arg name="goal_y" default="5.0"/> -->
+
+  <arg name="orient_x" default="-45.0"/>
+  <arg name="orient_y" default="-1.5"/>
+  <arg name="goal_x" default="-15.0"/>
+  <arg name="goal_y" default="0.0"/>
   
   <param name="using_gmm_param" value="$(arg using_gmm)"/>
   <param name="orient_x" value="$(arg orient_x)"/>
