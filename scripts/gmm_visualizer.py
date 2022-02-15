@@ -56,7 +56,9 @@ from std_msgs.msg import (Float32MultiArray, Float64MultiArray,
 
 from geometry_msgs.msg import PoseArray
 import matplotlib as mpl
+# plt.switch_backend('agg') 
 import matplotlib.pyplot as plt
+
 from numpy import linalg
 from functools import partial
 color_iter = itertools.cycle(
@@ -97,7 +99,13 @@ def plot_results(means, covariances, index, title):
 
         # Plot an ellipse to show the Gaussian component
         angle = np.arctan(u[1] / u[0])
-        angle = 180.0 * angle / np.pi  # convert to degreesl
+        angle = 180.0 * angle / np.pi  # convert to degrees
+
+        # rospy.loginfo('id: ' + str(i))
+        rospy.loginfo('shorter radius: ' + str(v[0]))
+        rospy.loginfo('longer radius: ' + str(v[1]))
+        rospy.loginfo('angular command: ' + str(180.0 + angle))
+
         ell = mpl.patches.Ellipse(mean, v[0], v[1], 180.0 + angle, color=color)
         ell.set_clip_box(splot.bbox)
         ell.set_alpha(0.5)

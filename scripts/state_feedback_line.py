@@ -1,42 +1,5 @@
 #!/usr/bin/env python3
 
-# Software License Agreement (BSD License)
-#
-# Copyright (c) 2008, Willow Garage, Inc.
-# All rights reserved.
-#
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions
-# are met:
-#
-#  * Redistributions of source code must retain the above copyright
-#    notice, this list of conditions and the following disclaimer.
-#  * Redistributions in binary form must reproduce the above
-#    copyright notice, this list of conditions and the following
-#    disclaimer in the documentation and/or other materials provided
-#    with the distribution.
-#  * Neither the name of Willow Garage, Inc. nor the names of its
-#    contributors may be used to endorse or promote products derived
-#    from this software without specific prior written permission.
-#
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-# FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
-# COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-# INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-# BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-# LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
-# ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-# POSSIBILITY OF SUCH DAMAGE.
-#
-# Revision $Id$
-
-## Simple talker demo that listens to std_msgs/Strings published
-## to the 'chatter' topic
-
 import math
 # from cmath import sqrt, tan
 # from numpy.core.fromnumeric import mean
@@ -59,18 +22,21 @@ from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
 from functools import partial
 
-k = -15.51428899
-b = -457.9540552
+x1 = rospy.get_param('~orient_x')
+y1 = rospy.get_param('~orient_y')
+x2 = rospy.get_param('~goal_x')
+y2 = rospy.get_param('~goal_y')
 
-x1 = -29.0157584068721
-y1 = -7.79519393496102
-x2 = -29.8366912334359
-y2 = 4.94099518011244
+k = (y2 - y1) / (x2 - x1)
+b = y2- k * x1
+
+k1 = 0.5
+k2 = -0.5
 
 
-def get_err_x(global_x, global_y):
+def get_err_x(x, y):
 
-    d = (global_y - k * global_x - b) / math.sqrt(1 + math.pow(k, 2))
+    d = (y - k * x - b) / math.sqrt(1 + math.pow(k, 2))
     
     rospy.loginfo('linear_error = ' + str(d))
     
@@ -97,8 +63,7 @@ def get_err_orient(z, w):
 def callback(data): 
     pubCmd = rospy.Publisher('cmd_vel', Twist, queue_size=10) 
 
-    # start = time.time()
-
+    start = time.time()
 
     x = data.pose.pose.position.x
     y = data.pose.pose.position.y
@@ -107,9 +72,6 @@ def callback(data):
 
     orient_z = data.pose.pose.orientation.z
     orient_w = data.pose.pose.orientation.w
-
-    k1 = 0.5
-    k2 = -0.5
 
     x_err = get_err_x(x, y)
 
@@ -157,9 +119,9 @@ def callback(data):
     pubCmd.publish(cmd_vel_msg)
     # pubCovar.publish(gmm_covar)
 
-    # total time taken
-    # end = time.time()
-    # print('Runtime of the program is %f' %(end - start))
+    # prints total time taken
+    end = time.time()
+    print('Runtime of the program is %f s. ' %(end - start))
 
 def listener():
 
