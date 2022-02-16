@@ -6,10 +6,12 @@
 
 2. `catkin_make` -->
 
-I don't know but maybe because Turtlebot3_simulation comes from the original repository, when I push the files don't go to this repository. 
+<!-- I don't know but maybe because Turtlebot3_simulation comes from the original repository, when I push the files don't go to this repository. 
 
 I forked the repository and pushed. 
-You can pull, merge folders and skip all existing files (cause there are only new files). 
+You can pull, merge folders and skip all existing files (cause there are only new files).  -->
+
+
 
 
 ## Turtlebot3_navigation (RViz)
