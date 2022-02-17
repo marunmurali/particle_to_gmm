@@ -2,16 +2,16 @@
 
 ## Turtlebot3_simulation (gazebo) setup
 
-<!-- 1. Copy the `turtlebot3_simulations` folder to `catkin_ws/src`, while merging
+1. Copy the `turtlebot3_simulations` folder to `catkin_ws/src`, while merging
 
-2. `catkin_make` -->
+2. `catkin_make` (maybe)
 
-<!-- I don't know but maybe because Turtlebot3_simulation comes from the original repository, when I push the files don't go to this repository. 
+<s>I don't know but maybe because Turtlebot3_simulation comes from the original repository, when I push the files don't go to this repository. 
 
 I forked the repository and pushed. 
-You can pull, merge folders and skip all existing files (cause there are only new files).  -->
+You can pull, merge folders and skip all existing files (cause there are only new files). </s>
 
-
+Since it's not a full copy of the original repository, I did the changes so that it's no longer a subdirectory. 
 
 
 ## Turtlebot3_navigation (RViz)

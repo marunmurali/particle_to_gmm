@@ -1,50 +1,81 @@
 #!/usr/bin/env python3
 
-# A state feedback demo in the simulation environment of Turtlebot 3. 
+# Software License Agreement (BSD License)
+#
+# Copyright (c) 2008, Willow Garage, Inc.
+# All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions
+# are met:
+#
+#  * Redistributions of source code must retain the above copyright
+#    notice, this list of conditions and the following disclaimer.
+#  * Redistributions in binary form must reproduce the above
+#    copyright notice, this list of conditions and the following
+#    disclaimer in the documentation and/or other materials provided
+#    with the distribution.
+#  * Neither the name of Willow Garage, Inc. nor the names of its
+#    contributors may be used to endorse or promote products derived
+#    from this software without specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+# FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+# COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+# INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+# BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+# LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+# ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE.
 
-# The publish (output): 
+# A contoller used in the simulation environment of Turtlebot 3. 
 
-import math
-# from cmath import sqrt, tan
-# from numpy.core.fromnumeric import mean
+import itertools
 import rospy
 import time
+import math
 import numpy as np
+from numpy.core.fromnumeric import mean
+from numpy.ma.core import concatenate
+from numpy import linalg
 from sklearn import mixture
+from functools import partial
 #from sklearn.mixture import BayesianGaussianMixture
-# from std_msgs.msg import String
+
+# ROS libraries
+from std_msgs.msg import String
 from std_msgs.msg import MultiArrayDimension
 from std_msgs.msg import (Float32MultiArray, Float64MultiArray,
                           Int8MultiArray, Int16MultiArray,
                           Int32MultiArray, Int64MultiArray,
                           UInt8MultiArray, UInt16MultiArray,
                           UInt32MultiArray, UInt64MultiArray)
-# from geometry_msgs.msg import PoseArray
+
 from geometry_msgs.msg import PoseArray
 from geometry_msgs.msg import Pose
 from geometry_msgs.msg import PoseWithCovarianceStamped
 from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
-from functools import partial
 
-# import matplotlib as mpl
-# mpl.switch_backend('agg') 
-# import matplotlib.pyplot as plt
+import matplotlib as mpl
+import matplotlib.pyplot as plt
 
-orient_x = rospy.get_param('orient_x_param')
-orient_y = rospy.get_param('orient_y_param')
-goal_x = rospy.get_param('goal_x_param')
-goal_y = rospy.get_param('goal_y_param')
-
-# using_gmm = rospy.get_param('using_gmm_param')
+orient_x = rospy.get_param('orient_x')
+orient_y = rospy.get_param('orient_y')
+goal_x = rospy.get_param('goal_x')
+goal_y = rospy.get_param('goal_y')
 
 k = (goal_y - orient_y) / (goal_x - orient_x)
-b = goal_y - k * goal_x
+b = orient_y - k * orient_x
 
-k1 = 0.5
-k2 = -0.5
+orient_ref = -np.arctan2(goal_x - orient_x, goal_y - orient_y)
 
-orient_ref =  -math.atan2(goal_x - orient_x, goal_y - orient_y)
+k1 = -1.0
+k2 = -0.50
 
 mean = None
 covariance = None
@@ -179,21 +210,41 @@ def callback_odom(data):
     end = time.time()
     print('Runtime of the program is %f' %(end - start))
 
-def my_node():
+class MyNode:
 
-    # In ROS, nodes are uniquely named. If two nodes with the same
-    # name are launched, the previous one is kicked off. The
-    # anonymous=True flag means that rospy will choose a unique
-    # name for our 'listener' node so that multiple listeners can
-    # run simultaneously.
+    # Initializer
+    def __init__(self):     
 
-    rospy.Subscriber('gmm_mean', Float64MultiArray, callback_gmm_mean)
-    rospy.Subscriber('gmm_covar', Float64MultiArray, callback_gmm_covar)
-    rospy.Subscriber('gmm_weight', Float64MultiArray, callback_gmm_weight)
-    rospy.Subscriber('odom', Odometry, callback_odom)
+        rospy.init_node('gmm_controller', anonymous=True)
 
-    # spin() simply keeps python from exiting until this node is stopped
-    rospy.spin()
+        self.mean = None
+        self.covariance = None
+        self.weight = None
+
+        rospy.Subscriber('gmm_mean', Float64MultiArray, self.callback_gmm_mean)
+        rospy.Subscriber('gmm_covar', Float64MultiArray, self.callback_gmm_covar)
+        rospy.Subscriber('gmm_weight', Float64MultiArray, self.callback_gmm_weight)
+        rospy.Subscriber('odom', Odometry, callback_odom)
+
+    def callback_gmm_mean(self,data):
+        self.mean = to_numpy_f64(data)
+
+    def callback_gmm_covar(self,data):
+        self.covariance = to_numpy_f64(data)
+
+        # rowSize = data.layout.dim[0].size
+        # tempArray = []
+        # for i in range(rowSize):
+        #     if len(tempArray) == 0:
+        #         tempArray = [[data.data[i*4], data.data[i*4+1]], [data.data[i*4+2], data.data[i*4+3]]]
+        #         print(np.shape(tempArray))
+        #     else:
+        #         tempArray =np.stack([tempArray, [[data.data[i*4], data.data[i*4+1]], [data.data[i*4+2], data.data[i*4+3]]]], axis=0)
+        # self.covariance = np.array(tempArray)
+        # print(self.covariance)
+        # print(np.shape(self.covariance))
+        self.try_plot()
+        
 
 if __name__ == '__main__':
 
