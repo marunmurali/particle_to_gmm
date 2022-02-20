@@ -57,6 +57,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 from numpy import linalg
 from functools import partial
+
 color_iter = itertools.cycle(["navy", "c", "cornflowerblue", "gold", "darkorange"])
 
 def _numpy_to_multiarray(multiarray_type, np_array):
@@ -85,13 +86,19 @@ def plot_results(means, covariances, index, title):
     splot = plt.subplot(1, 1, 1)
     #splot = plt.subplots(figsize=(5, 2.7))
     for i, (mean, covar, color) in enumerate(zip(means, covariances, color_iter)):
+        
+        # Ascending (increasing) order, b then a
         v, w = linalg.eigh(covar)
+        
         v = 2.0 * np.sqrt(2.0) * np.sqrt(v)
         u = w[0] / linalg.norm(w[0])
 
         # Plot an ellipse to show the Gaussian component
         angle = np.arctan(u[1] / u[0])
-        angle = 180.0 * angle / np.pi  # convert to degreesl
+        angle = 180.0 * angle / np.pi  # convert to degrees
+
+        rospy.loginfo('angle = ' + str(angle))
+        # ell = mpl.patches.Ellipse(mean, 0.1, 0.3, 0.0, color=color)
         ell = mpl.patches.Ellipse(mean, v[0], v[1], 180.0 + angle, color=color)
         ell.set_clip_box(splot.bbox)
         ell.set_alpha(0.5)
@@ -166,7 +173,11 @@ class MyNode:
 if __name__ == '__main__':
     plt.figure()
     plt.ion()
+
     node = MyNode()
-    # spin() simply keeps python from exiting until this node is stopped
+
     plt.show()
+    plt.close()
+    
+    # spin() simply keeps python from exiting until this node is stopped
     rospy.spin()

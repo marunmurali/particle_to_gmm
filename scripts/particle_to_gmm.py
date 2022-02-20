@@ -68,7 +68,7 @@ def callback(data):
     # n_components is maximum in Bayesian
 
     dpgmm = mixture.GaussianMixture(
-        n_components=2, covariance_type="full").fit(PoseForGmm)
+        n_components=3, covariance_type="full").fit(PoseForGmm)
 
     # note: reducing n_components
 

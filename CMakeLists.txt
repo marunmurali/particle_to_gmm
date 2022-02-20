@@ -161,7 +161,7 @@ include_directories(
 # Mark executable scripts (Python etc.) for installation
 # in contrast to setup.py, you can choose the destination
 catkin_install_python(
-  PROGRAMS scripts/state_feedback_line.py scripts/state_feedback_withgmm.py
+  PROGRAMS scripts/state_feedback_line.py scripts/gmm_controller.py
   scripts/particle_to_gmm.py scripts/gmm_visualizer.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )

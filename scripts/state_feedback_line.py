@@ -153,7 +153,7 @@ def callback(data):
 
     # prints total time taken
     end = time.time()
-    # print('Runtime of the program is %f s. ' %(end - start))
+    print('Runtime of the program is %f s. ' %(end - start))
 
     # r.sleep()
 
