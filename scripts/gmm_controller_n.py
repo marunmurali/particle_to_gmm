@@ -34,16 +34,17 @@
 
 # A contoller used in the simulation environment of Turtlebot 3. 
 
-import itertools
+# import itertools
 import rospy
 import time
 import math
 import numpy as np
-# from numpy.core.fromnumeric import mean
-# from numpy.ma.core import concatenate
+from numpy.core.fromnumeric import mean
+from numpy.ma.core import concatenate
 from numpy import linalg
 from sklearn import mixture
 from functools import partial
+from scripts.ref2 import controller
 #from sklearn.mixture import BayesianGaussianMixture
 
 # ROS libraries
@@ -77,7 +78,7 @@ orient_ref = -np.arctan2(goal_x - orient_x, goal_y - orient_y)
 # k1 = -1.0
 k2 = -0.50
 k3 = 0.1
-k4 = 0.1
+k4 = -0.1
 
 # Data conversion methods
 def _numpy_to_multiarray(multiarray_type, np_array):
@@ -128,7 +129,7 @@ def get_err_orient(theta):
 
 
 # Controller method
-def control_with_gmm(means, covariances, weights, odom): 
+def controller(means, covariances, weights, odom): 
 
     pubCmd = rospy.Publisher('cmd_vel', Twist, queue_size=10) 
 
@@ -145,14 +146,8 @@ def control_with_gmm(means, covariances, weights, odom):
 
     orientation_err = get_err_orient(theta)
 
-    # for i, (m, covar) in enumerate(zip(means, covariances)):
-    for i, (m, covar, weight) in enumerate(zip(means, covariances, weights)):
-        
-        print('i = ', i)
-        print('m = ', m)
-        print('covar = ', covar)
-        print('weight = ', weight)
-        
+    for (m, covar) in enumerate(zip(means, covariances)):
+    # for (m, covar, weight) in enumerate(zip(means, covariances, weights)):
         eig_val, eig_vec = linalg.eigh(covar)
 
         v = 2.0 * np.sqrt(5.991) * np.sqrt(eig_val)
@@ -186,23 +181,21 @@ def control_with_gmm(means, covariances, weights, odom):
         else: 
             k1 = 0.50
 
-        k1 = k1 * np.abs(np.cos(orientation_err))
-        
         cmd3 = k3 * l1
 
-        if np.abs(cmd3) > 0.05: 
-            cmd3 = cmd3 * 0.05 / np.abs(cmd3)
+        if np.abs(cmd3) > 1.0: 
+            cmd3 = cmd3 / np.abs(cmd3)
 
         cmd4 = k4 * l2
 
-        if np.abs(cmd4) > 0.05: 
-            cmd4 = cmd4 * 0.05 / np.abs(cmd4)
+        if np.abs(cmd4) > 1.0: 
+            cmd4 = cmd4 / np.abs(cmd4)
 
-        angular_cmd += weight * (k1 * x_err + k2 * orientation_err)
 
-        linear_cmd += weight * (cmd3 + cmd4)
+        angular_cmd += 1 / 3 * (k1 * x_err + k2 * orientation_err)
 
-    rospy.loginfo('linear command: ' + str(linear_cmd))
+        linear_cmd += 1 / 3 * (cmd3 + cmd4)
+
     rospy.loginfo('angular command: ' + str(angular_cmd))
 
     # rospy.loginfo('x coordinate: ' + str(x) + '; y coordinate: ' + str(y))
@@ -221,9 +214,6 @@ def control_with_gmm(means, covariances, weights, odom):
     pubCmd.publish(cmd_vel_msg)
     # pubCovar.publish(gmm_covar)
 
-    r.sleep()
-    
-
 class MyNode:
 
     # Initializer
@@ -231,9 +221,7 @@ class MyNode:
 
         rospy.init_node('gmm_controller', anonymous=True)
 
-        global r
-
-        r = rospy.Rate(2)
+        r = rospy.Rate(3)
 
         self.mean = None
         self.covariance = None
@@ -244,13 +232,14 @@ class MyNode:
 
         rospy.Subscriber('gmm_mean', Float64MultiArray, self.callback_gmm_mean)
         rospy.Subscriber('gmm_covar', Float64MultiArray, self.callback_gmm_covar)
-        rospy.Subscriber('gmm_weight', Float64MultiArray, self.callback_gmm_weight)
+        # rospy.Subscriber('gmm_weight', Float64MultiArray, self.callback_gmm_weight)
         rospy.Subscriber('odom', Odometry, self.callback_odom)
 
         # total time taken
         end = time.time()
         print('Runtime of the program is %f' %(end - start))
 
+        r.sleep()
 
     def callback_gmm_mean(self,data):
         self.mean = to_numpy_f64(data)
@@ -278,20 +267,13 @@ class MyNode:
 
         self.control()
 
-    def control(self): 
-        if self.covariance is None or self.odom is None: 
-            return
-        else: 
-            control_with_gmm(self.mean, self.covariance, self.weight, self.odom)
-
-
 # Main method
-
 if __name__ == '__main__':
 
     # rospy.init_node('state_feedback', anonymous=True)
     # rate = rospy.Rate(5) # ROS Rate at 5Hz
 
-    node = MyNode()
-
-    rospy.spin()
+    try: 
+        controller()
+    except rospy.ROSInitException: 
+        pass

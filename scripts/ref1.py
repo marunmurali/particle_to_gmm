@@ -1,5 +1,3 @@
-An example of subscribing and publishing with one script, to be applied
-
 import rospy
 from std_msgs.msg import Int32
 import threading
