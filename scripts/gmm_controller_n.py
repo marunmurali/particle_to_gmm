@@ -44,7 +44,6 @@ from numpy.ma.core import concatenate
 from numpy import linalg
 from sklearn import mixture
 from functools import partial
-from scripts.ref2 import controller
 #from sklearn.mixture import BayesianGaussianMixture
 
 # ROS libraries
@@ -129,7 +128,9 @@ def get_err_orient(theta):
 
 
 # Controller method
-def controller(means, covariances, weights, odom): 
+def gmm_controller(means, covariances, weights, odom): 
+
+    rospy.init_node('gmm_controller', anonymous=True)
 
     pubCmd = rospy.Publisher('cmd_vel', Twist, queue_size=10) 
 
@@ -146,7 +147,7 @@ def controller(means, covariances, weights, odom):
 
     orientation_err = get_err_orient(theta)
 
-    for (m, covar) in enumerate(zip(means, covariances)):
+    for i, (m, covar, weight) in enumerate(zip(means, covariances, weights)):
     # for (m, covar, weight) in enumerate(zip(means, covariances, weights)):
         eig_val, eig_vec = linalg.eigh(covar)
 
@@ -183,13 +184,13 @@ def controller(means, covariances, weights, odom):
 
         cmd3 = k3 * l1
 
-        if np.abs(cmd3) > 1.0: 
-            cmd3 = cmd3 / np.abs(cmd3)
+        if np.abs(cmd3) > 0.05: 
+            cmd3 = cmd3 * 0.05 / np.abs(cmd3)
 
         cmd4 = k4 * l2
 
-        if np.abs(cmd4) > 1.0: 
-            cmd4 = cmd4 / np.abs(cmd4)
+        if np.abs(cmd4) > 0.05: 
+            cmd4 = cmd4 * 0.05 / np.abs(cmd4)
 
 
         angular_cmd += 1 / 3 * (k1 * x_err + k2 * orientation_err)
@@ -202,7 +203,7 @@ def controller(means, covariances, weights, odom):
 
     cmd_vel_msg = Twist()
 
-    cmd_vel_msg.linear.x = 0.20 + linear_cmd
+    cmd_vel_msg.linear.x = 0.15 + linear_cmd
         
     cmd_vel_msg.linear.y = 0.0    
     cmd_vel_msg.linear.z = 0.0
@@ -212,68 +213,12 @@ def controller(means, covariances, weights, odom):
     cmd_vel_msg.angular.z = angular_cmd
     
     pubCmd.publish(cmd_vel_msg)
-    # pubCovar.publish(gmm_covar)
-
-class MyNode:
-
-    # Initializer
-    def __init__(self):     
-
-        rospy.init_node('gmm_controller', anonymous=True)
-
-        r = rospy.Rate(3)
-
-        self.mean = None
-        self.covariance = None
-        self.weight = None
-        self.odom = Odometry()
-
-        start = time.time()
-
-        rospy.Subscriber('gmm_mean', Float64MultiArray, self.callback_gmm_mean)
-        rospy.Subscriber('gmm_covar', Float64MultiArray, self.callback_gmm_covar)
-        # rospy.Subscriber('gmm_weight', Float64MultiArray, self.callback_gmm_weight)
-        rospy.Subscriber('odom', Odometry, self.callback_odom)
-
-        # total time taken
-        end = time.time()
-        print('Runtime of the program is %f' %(end - start))
-
-        r.sleep()
-
-    def callback_gmm_mean(self,data):
-        self.mean = to_numpy_f64(data)
-
-    def callback_gmm_covar(self,data):
-        self.covariance = to_numpy_f64(data)
-
-        # rowSize = data.layout.dim[0].size
-        # tempArray = []
-        # for i in range(rowSize):
-        #     if len(tempArray) == 0:
-        #         tempArray = [[data.data[i*4], data.data[i*4+1]], [data.data[i*4+2], data.data[i*4+3]]]
-        #         print(np.shape(tempArray))
-        #     else:
-        #         tempArray =np.stack([tempArray, [[data.data[i*4], data.data[i*4+1]], [data.data[i*4+2], data.data[i*4+3]]]], axis=0)
-        # self.covariance = np.array(tempArray)
-        # print(self.covariance)
-        # print(np.shape(self.covariance))
-
-    def callback_gmm_weight(self, data): 
-        self.weight = to_numpy_f64(data)
-
-    def callback_odom(self, data): 
-        self.odom = data; 
-
-        self.control()
 
 # Main method
 if __name__ == '__main__':
-
-    # rospy.init_node('state_feedback', anonymous=True)
-    # rate = rospy.Rate(5) # ROS Rate at 5Hz
-
+    
     try: 
-        controller()
+        rospy.loginfo('new')
+        gmm_controller()
     except rospy.ROSInitException: 
         pass

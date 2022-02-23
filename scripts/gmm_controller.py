@@ -107,7 +107,7 @@ def get_err_position(x, y):
 
     d = (y - k * x - b) / math.sqrt(1 + math.pow(k, 2))
     
-    rospy.loginfo('linear_error = ' + str(d))
+    # rospy.loginfo('linear_error = ' + str(d))
     
     return d
 
@@ -135,6 +135,8 @@ def control_with_gmm(means, covariances, weights, odom):
     linear_cmd = 0.0
     angular_cmd = 0.0
 
+    dist_goal = 0.0
+
     orient_z = odom.pose.pose.orientation.z
     orient_w = odom.pose.pose.orientation.w
 
@@ -148,10 +150,10 @@ def control_with_gmm(means, covariances, weights, odom):
     # for i, (m, covar) in enumerate(zip(means, covariances)):
     for i, (m, covar, weight) in enumerate(zip(means, covariances, weights)):
         
-        print('i = ', i)
-        print('m = ', m)
-        print('covar = ', covar)
-        print('weight = ', weight)
+        # print('i = ', i)
+        # print('m = ', m)
+        # print('covar = ', covar)
+        # print('weight = ', weight)
         
         eig_val, eig_vec = linalg.eigh(covar)
 
@@ -202,14 +204,19 @@ def control_with_gmm(means, covariances, weights, odom):
 
         linear_cmd += weight * (cmd3 + cmd4)
 
-    rospy.loginfo('linear command: ' + str(linear_cmd))
-    rospy.loginfo('angular command: ' + str(angular_cmd))
+        dist_goal = np.sqrt(np.power(goal_x - x, 2) + np.power(goal_y - y, 2))
+
+    # rospy.loginfo('linear command: ' + str(linear_cmd))
+    # rospy.loginfo('angular command: ' + str(angular_cmd))
 
     # rospy.loginfo('x coordinate: ' + str(x) + '; y coordinate: ' + str(y))
 
     cmd_vel_msg = Twist()
 
-    cmd_vel_msg.linear.x = 0.20 + linear_cmd
+    cmd_vel_msg.linear.x = 0.15 + linear_cmd
+
+    if dist_goal <= 0.1: 
+        cmd_vel_msg.linear.x = 0.0
         
     cmd_vel_msg.linear.y = 0.0    
     cmd_vel_msg.linear.z = 0.0
@@ -223,6 +230,22 @@ def control_with_gmm(means, covariances, weights, odom):
 
     r.sleep()
     
+def control_with_no_info(): 
+
+    pubCmd = rospy.Publisher('cmd_vel', Twist, queue_size=10) 
+
+    cmd_vel_msg = Twist()
+
+    cmd_vel_msg.linear.x = 0.20
+        
+    cmd_vel_msg.linear.y = 0.0    
+    cmd_vel_msg.linear.z = 0.0
+
+    cmd_vel_msg.angular.x = 0.0
+    cmd_vel_msg.angular.y = 0.0
+    cmd_vel_msg.angular.z = 0.5
+    
+    pubCmd.publish(cmd_vel_msg)
 
 class MyNode:
 
@@ -231,9 +254,10 @@ class MyNode:
 
         rospy.init_node('gmm_controller', anonymous=True)
 
+        rospy.loginfo('init node')
         global r
 
-        r = rospy.Rate(2)
+        r = rospy.Rate(1)
 
         self.mean = None
         self.covariance = None
@@ -249,13 +273,15 @@ class MyNode:
 
         # total time taken
         end = time.time()
-        print('Runtime of the program is %f' %(end - start))
+        print('Runtime of Conroller is %f' %(end - start))
 
 
     def callback_gmm_mean(self,data):
+        rospy.loginfo('received gmm mean')
         self.mean = to_numpy_f64(data)
 
     def callback_gmm_covar(self,data):
+        rospy.loginfo('received gmm covariance')
         self.covariance = to_numpy_f64(data)
 
         # rowSize = data.layout.dim[0].size
@@ -271,16 +297,19 @@ class MyNode:
         # print(np.shape(self.covariance))
 
     def callback_gmm_weight(self, data): 
+        rospy.loginfo('received gmm weight')
         self.weight = to_numpy_f64(data)
 
     def callback_odom(self, data): 
+        rospy.loginfo('received odometry')
         self.odom = data; 
 
         self.control()
 
     def control(self): 
+        rospy.loginfo('controlling')
         if self.covariance is None or self.odom is None: 
-            return
+            control_with_no_info()
         else: 
             control_with_gmm(self.mean, self.covariance, self.weight, self.odom)
 
@@ -292,6 +321,8 @@ if __name__ == '__main__':
     # rospy.init_node('state_feedback', anonymous=True)
     # rate = rospy.Rate(5) # ROS Rate at 5Hz
 
+    rospy.loginfo('main method')
+    
     node = MyNode()
 
     rospy.spin()

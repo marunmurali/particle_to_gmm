@@ -40,6 +40,8 @@ to_multiarray_f64 = partial(_numpy_to_multiarray, Float64MultiArray)
 
 
 def callback(data):
+    start = time.time()
+
     pubMean = rospy.Publisher(
         'gmm_mean', Float64MultiArray, queue_size=10)  # GMM Mean
     pubCovar = rospy.Publisher(
@@ -47,7 +49,6 @@ def callback(data):
     pubWeight = rospy.Publisher(
         'gmm_weight', Float64MultiArray, queue_size=10)  # GMM Weight
 
-    start = time.time()
     # rospy.loginfo(rospy.get_caller_id() +
     #               'Number of particles %d', len(data.poses))
 
@@ -84,7 +85,7 @@ def callback(data):
 
     # total time taken
     end = time.time()
-    print("Runtime of the program is %f" % (end - start))
+    rospy.loginfo("Runtime of GMM publisher is %f" % (end - start))
 
 
 def toMultiArray(matrix):

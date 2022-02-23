@@ -16,13 +16,15 @@ Since it's not a full copy of the original repository, I did the changes so that
 
 ## Turtlebot3_navigation (RViz)
 
-done when you clone `particle_to_gmm` and build
+done when you clone `particle_to_gmm` and build (if you have cloned turtlebot3_simulation into catkin_ws)
 
 ## Maps
 
 copy maps folder to `/home`
 
 ## Launching
+
+### Gazebo and RViz
 
 For campus outdoor map, run the following:
 
@@ -34,3 +36,10 @@ For corridor indoor map, run the following:
     roslaunch turtlebot3_gazebo turtlebot3_corridor1.launch  
     roslaunch particle_to_gmm turtlebot3_navigation_new.launch
 
+### Particle_to_gmm nodes
+
+Run the following: 
+
+    roslaunch particle_to_gmm my_state_feedback.launch
+
+(Particle_to_gmm and gmm_controller will both launch)
