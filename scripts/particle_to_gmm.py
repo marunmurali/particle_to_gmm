@@ -24,6 +24,12 @@ from geometry_msgs.msg import PoseArray
 
 from functools import partial
 
+
+# Global variables
+
+n = rospy.get_param('num_of_gmm_dist')
+
+
 # Methods
 
 
@@ -69,7 +75,7 @@ def callback(data):
     # n_components is maximum in Bayesian
 
     dpgmm = mixture.GaussianMixture(
-        n_components=3, covariance_type="full").fit(PoseForGmm)
+        n_components=n, covariance_type="full").fit(PoseForGmm)
 
     # note: reducing n_components
 
