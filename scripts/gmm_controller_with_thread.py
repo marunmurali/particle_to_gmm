@@ -35,12 +35,13 @@
 # A contoller used in the simulation environment of Turtlebot 3. 
 
 # import itertools
+import threading
 import rospy
-import time
+# import time
 import math
 import numpy as np
-from numpy.core.fromnumeric import mean
-from numpy.ma.core import concatenate
+# from numpy.core.fromnumeric import mean
+# from numpy.ma.core import concatenate
 from numpy import linalg
 from sklearn import mixture
 from functools import partial
@@ -77,7 +78,12 @@ orient_ref = -np.arctan2(goal_x - orient_x, goal_y - orient_y)
 # k1 = -1.0
 k2 = -0.50
 k3 = 0.1
-k4 = -0.1
+k4 = 0.1
+
+gmm_mean = None
+gmm_covariance = None
+gmm_weight = None
+odom = Odometry()
 
 # Data conversion methods
 def _numpy_to_multiarray(multiarray_type, np_array):
@@ -107,7 +113,7 @@ def get_err_position(x, y):
 
     d = (y - k * x - b) / math.sqrt(1 + math.pow(k, 2))
     
-    rospy.loginfo('linear_error = ' + str(d))
+    # rospy.loginfo('linear_error = ' + str(d))
     
     return d
 
@@ -128,14 +134,14 @@ def get_err_orient(theta):
 
 
 # Controller method
-def gmm_controller(means, covariances, weights, odom): 
-
-    rospy.init_node('gmm_controller', anonymous=True)
+def control_with_gmm(means, covariances, weights, odom): 
 
     pubCmd = rospy.Publisher('cmd_vel', Twist, queue_size=10) 
 
     linear_cmd = 0.0
     angular_cmd = 0.0
+
+    dist_goal = 0.0
 
     orient_z = odom.pose.pose.orientation.z
     orient_w = odom.pose.pose.orientation.w
@@ -147,8 +153,14 @@ def gmm_controller(means, covariances, weights, odom):
 
     orientation_err = get_err_orient(theta)
 
+    # for i, (m, covar) in enumerate(zip(means, covariances)):
     for i, (m, covar, weight) in enumerate(zip(means, covariances, weights)):
-    # for (m, covar, weight) in enumerate(zip(means, covariances, weights)):
+        
+        # print('i = ', i)
+        # print('m = ', m)
+        # print('covar = ', covar)
+        # print('weight = ', weight)
+        
         eig_val, eig_vec = linalg.eigh(covar)
 
         v = 2.0 * np.sqrt(5.991) * np.sqrt(eig_val)
@@ -182,6 +194,8 @@ def gmm_controller(means, covariances, weights, odom):
         else: 
             k1 = 0.50
 
+        k1 = k1 * np.abs(np.cos(orientation_err))
+        
         cmd3 = k3 * l1
 
         if np.abs(cmd3) > 0.05: 
@@ -192,18 +206,23 @@ def gmm_controller(means, covariances, weights, odom):
         if np.abs(cmd4) > 0.05: 
             cmd4 = cmd4 * 0.05 / np.abs(cmd4)
 
+        angular_cmd += weight * (k1 * x_err + k2 * orientation_err)
 
-        angular_cmd += 1 / 3 * (k1 * x_err + k2 * orientation_err)
+        linear_cmd += weight * (cmd3 + cmd4)
 
-        linear_cmd += 1 / 3 * (cmd3 + cmd4)
+        dist_goal = np.sqrt(np.power(goal_x - x, 2) + np.power(goal_y - y, 2))
 
-    rospy.loginfo('angular command: ' + str(angular_cmd))
+    # rospy.loginfo('linear command: ' + str(linear_cmd))
+    # rospy.loginfo('angular command: ' + str(angular_cmd))
 
     # rospy.loginfo('x coordinate: ' + str(x) + '; y coordinate: ' + str(y))
 
     cmd_vel_msg = Twist()
 
     cmd_vel_msg.linear.x = 0.15 + linear_cmd
+
+    if dist_goal <= 0.1: 
+        cmd_vel_msg.linear.x = 0.0
         
     cmd_vel_msg.linear.y = 0.0    
     cmd_vel_msg.linear.z = 0.0
@@ -213,12 +232,73 @@ def gmm_controller(means, covariances, weights, odom):
     cmd_vel_msg.angular.z = angular_cmd
     
     pubCmd.publish(cmd_vel_msg)
+    # pubCovar.publish(gmm_covar)
+
+    
+def control_with_no_info(): 
+
+    pubCmd = rospy.Publisher('cmd_vel', Twist, queue_size=10) 
+
+    cmd_vel_msg = Twist()
+
+    cmd_vel_msg.linear.x = 0.20
+        
+    cmd_vel_msg.linear.y = 0.0    
+    cmd_vel_msg.linear.z = 0.0
+
+    cmd_vel_msg.angular.x = 0.0
+    cmd_vel_msg.angular.y = 0.0
+    cmd_vel_msg.angular.z = 0.5
+    
+    pubCmd.publish(cmd_vel_msg)
+
+
+def callback_gmm_mean(data):
+    global gmm_mean
+    rospy.loginfo('received gmm mean')
+    gmm_mean = to_numpy_f64(data)
+
+def callback_gmm_covar(data):
+    global gmm_covariance
+    rospy.loginfo('received gmm covariance')
+    gmm_covariance = to_numpy_f64(data)
+
+def callback_gmm_weight(data): 
+    global gmm_weight
+    rospy.loginfo('received gmm weight')
+    gmm_weight = to_numpy_f64(data)
+
+def callback_odom(data):
+    global odom 
+    rospy.loginfo('received odometry')
+    odom = data; 
+
+def control(): 
+    r = rospy.Rate(2)
+    while not rospy.is_shutdown(): 
+        rospy.loginfo('controlling')
+        if gmm_covariance is None or odom is None: 
+            control_with_no_info()
+        else: 
+            control_with_gmm(gmm_mean, gmm_covariance, gmm_weight, odom)
+        r.sleep()
+
 
 # Main method
+
 if __name__ == '__main__':
+
+    # rospy.init_node('state_feedback', anonymous=True)
+    # rate = rospy.Rate(5) # ROS Rate at 5Hz
+
+    rospy.init_node("gmm_controller")
     
-    try: 
-        rospy.loginfo('new')
-        gmm_controller()
-    except rospy.ROSInitException: 
-        pass
+    sub_mean = rospy.Subscriber('gmm_mean', Float64MultiArray, callback_gmm_mean)
+    sub_cov = rospy.Subscriber('gmm_covar', Float64MultiArray, callback_gmm_covar)
+    sub_weight = rospy.Subscriber('gmm_weight', Float64MultiArray, callback_gmm_weight)
+    sub_odom = rospy.Subscriber('odom', Odometry, callback_odom)
+
+    pub = threading.Thread(target=control)
+    pub.start()
+
+    rospy.spin()
