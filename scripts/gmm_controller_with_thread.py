@@ -198,13 +198,13 @@ def control_with_gmm(means, covariances, weights, odom):
         
         cmd3 = k3 * l1
 
-        if np.abs(cmd3) > 0.05: 
-            cmd3 = cmd3 * 0.05 / np.abs(cmd3)
+        if np.abs(cmd3) > 0.10: 
+            cmd3 = cmd3 * 0.10 / np.abs(cmd3)
 
         cmd4 = k4 * l2
 
-        if np.abs(cmd4) > 0.05: 
-            cmd4 = cmd4 * 0.05 / np.abs(cmd4)
+        if np.abs(cmd4) > 0.10: 
+            cmd4 = cmd4 * 0.10 / np.abs(cmd4)
 
         angular_cmd += weight * (k1 * x_err + k2 * orientation_err)
 
@@ -219,9 +219,9 @@ def control_with_gmm(means, covariances, weights, odom):
 
     cmd_vel_msg = Twist()
 
-    cmd_vel_msg.linear.x = 0.15 + linear_cmd
+    cmd_vel_msg.linear.x = 0.20 + linear_cmd
 
-    if dist_goal <= 0.1: 
+    if dist_goal <= 0.25: 
         cmd_vel_msg.linear.x = 0.0
         
     cmd_vel_msg.linear.y = 0.0    

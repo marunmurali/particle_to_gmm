@@ -81,11 +81,11 @@ to_multiarray_f64 = partial(_numpy_to_multiarray, Float64MultiArray)
 to_numpy_f64 = partial(_multiarray_to_numpy, float, np.float64)
 
 
-def plot_results(means, covariances, index, title):
+def plot_results(means, covariances, index, title, weights):
     plt.clf()
     splot = plt.subplot(1, 1, 1)
     #splot = plt.subplots(figsize=(5, 2.7))
-    for i, (mean, covar, color) in enumerate(zip(means, covariances, color_iter)):
+    for i, (mean, covar, color, weight) in enumerate(zip(means, covariances, color_iter, weights)):
         
         # Ascending (increasing) order, b then a
         v, w = linalg.eigh(covar)
@@ -101,11 +101,14 @@ def plot_results(means, covariances, index, title):
         # ell = mpl.patches.Ellipse(mean, 0.1, 0.3, 0.0, color=color)
         ell = mpl.patches.Ellipse(mean, v[0], v[1], 180.0 + angle, color=color)
         ell.set_clip_box(splot.bbox)
-        ell.set_alpha(0.5)
+        ell.set_alpha(weight)
         splot.add_artist(ell)
 
-    plt.xlim(mean[0]-0.3, mean[0]+0.3)
-    plt.ylim(mean[1]-0.3, mean[1]+0.3)
+        plt_x = mean[0]
+        plt_y = mean[1]
+
+    plt.xlim(plt_x-1.0, plt_x+1.0)
+    plt.ylim(plt_y-1.0, plt_y+1.0)
     
     plt.xticks(())
     plt.yticks(())
@@ -125,8 +128,10 @@ class MyNode:
 
         self.mean = None
         self.covariance = None
+        self.weight = None
 
         rospy.Subscriber('gmm_mean', Float64MultiArray, self.MeanCallBack)
+        rospy.Subscriber('gmm_weight', Float64MultiArray, self.WeightCallBack)
         rospy.Subscriber('gmm_covar', Float64MultiArray, self.CovarCallBack)
 
 
@@ -143,6 +148,10 @@ class MyNode:
         # self.mean = np.array(tempArray)
         # print(np.shape(self.mean))
         # print(self.mean)
+
+    def WeightCallBack(self,data):
+        self.weight = to_numpy_f64(data)
+
     def CovarCallBack(self,data):
         self.covariance = to_numpy_f64(data)
 
@@ -168,6 +177,7 @@ class MyNode:
                 self.covariance,
                 1,
                 "Bayesian Gaussian Mixture with a Dirichlet process prior",
+                self.weight
                 )
 
 if __name__ == '__main__':

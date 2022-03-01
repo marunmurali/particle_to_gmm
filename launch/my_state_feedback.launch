@@ -25,6 +25,9 @@
   <!-- <node pkg="particle_to_gmm" type="state_feedback_line.py" name="state_feedback_line" output="screen">
   </node>  -->
 
+  <node pkg="particle_to_gmm" type="gmm_visualizer.py" name="gmm_visualizer" output="screen">
+  </node>
+
   <node pkg="particle_to_gmm" type="particle_to_gmm.py" name="particle_to_gmm" output="screen">
   </node>
 
