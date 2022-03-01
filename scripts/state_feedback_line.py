@@ -18,6 +18,7 @@ from std_msgs.msg import (Float32MultiArray, Float64MultiArray,
 # from geometry_msgs.msg import PoseArray
 from geometry_msgs.msg import Pose
 from geometry_msgs.msg import PoseWithCovarianceStamped
+from geometry_msgs.msg import Point
 from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
 from functools import partial
@@ -62,6 +63,8 @@ def get_err_orient(theta):
 
 def callback(data): 
     pubCmd = rospy.Publisher('cmd_vel', Twist, queue_size=10) 
+    pubError = rospy.Publisher('error', Point, queue_size=10)
+    error_msg = Point()
 
     start = time.time()
 
@@ -83,6 +86,12 @@ def callback(data):
     orientation_err = get_err_orient(theta)
 
     x_err = get_err_x(x, y)
+
+    error_msg.x = x_err
+    error_msg.y = orientation_err
+    error_msg.z = 0
+
+
 
     if ((-np.sin(theta) * (-np.sin(theta_ref)) + np.cos(theta) * np.cos(theta_ref)) 
             * (x2 - x1)) >= 0: 
@@ -149,6 +158,7 @@ def callback(data):
     # gmm_covar = to_multiarray_f64(dpgmm.covariances_)
 
     pubCmd.publish(cmd_vel_msg)
+    pubError.publish(error_msg)
     # pubCovar.publish(gmm_covar)
 
     # prints total time taken

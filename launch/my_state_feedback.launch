@@ -2,7 +2,7 @@
   <!-- launch file for state feedback -->
   <!-- Arguments -->
 
-  <arg name="num_of_gmm_dist" default="3"/>
+  <arg name="num_of_gmm_dist" default="1"/>
 
   <arg name="orient_x" default="-29.0"/>
   <arg name="orient_y" default="-7.8"/>
@@ -21,9 +21,7 @@
   <param name="goal_y" value="$(arg goal_y)"/>
   <param name="num_of_gmm_dist" value="$(arg num_of_gmm_dist)"/>
 
-  <!-- Node of state feedback -->
-  <!-- <node pkg="particle_to_gmm" type="state_feedback_line.py" name="state_feedback_line" output="screen">
-  </node>  -->
+
 
   <node pkg="particle_to_gmm" type="gmm_visualizer.py" name="gmm_visualizer" output="screen">
   </node>
@@ -33,6 +31,9 @@
 
   <node pkg="particle_to_gmm" type="gmm_controller_with_thread.py" name="gmm_controller" output="screen">
   </node> 
+    <!-- Node of state feedback -->
+  <!-- <node pkg="particle_to_gmm" type="state_feedback_line.py" name="state_feedback_line" output="screen">
+  </node>  -->
 
   <node pkg="particle_to_gmm" type="ref_line" name="ref_line" output="screen">
   </node> 
