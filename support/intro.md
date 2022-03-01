@@ -18,10 +18,6 @@ Since it's not a full copy of the original repository, I did the changes so that
 
 done when you clone `particle_to_gmm` and build (if you have cloned turtlebot3_simulation into catkin_ws)
 
-## Maps
-
-copy maps folder to `/home`
-
 ## Launching
 
 ### Gazebo and RViz
