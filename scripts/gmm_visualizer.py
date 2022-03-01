@@ -57,6 +57,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 from numpy import linalg
 from functools import partial
+
 color_iter = itertools.cycle(["navy", "c", "cornflowerblue", "gold", "darkorange"])
 
 def _numpy_to_multiarray(multiarray_type, np_array):
@@ -80,25 +81,34 @@ to_multiarray_f64 = partial(_numpy_to_multiarray, Float64MultiArray)
 to_numpy_f64 = partial(_multiarray_to_numpy, float, np.float64)
 
 
-def plot_results(means, covariances, index, title):
+def plot_results(means, covariances, index, title, weights):
     plt.clf()
     splot = plt.subplot(1, 1, 1)
     #splot = plt.subplots(figsize=(5, 2.7))
-    for i, (mean, covar, color) in enumerate(zip(means, covariances, color_iter)):
+    for i, (mean, covar, color, weight) in enumerate(zip(means, covariances, color_iter, weights)):
+        
+        # Ascending (increasing) order, b then a
         v, w = linalg.eigh(covar)
+        
         v = 2.0 * np.sqrt(2.0) * np.sqrt(v)
         u = w[0] / linalg.norm(w[0])
 
         # Plot an ellipse to show the Gaussian component
         angle = np.arctan(u[1] / u[0])
-        angle = 180.0 * angle / np.pi  # convert to degreesl
+        angle = 180.0 * angle / np.pi  # convert to degrees
+
+        rospy.loginfo('angle = ' + str(angle))
+        # ell = mpl.patches.Ellipse(mean, 0.1, 0.3, 0.0, color=color)
         ell = mpl.patches.Ellipse(mean, v[0], v[1], 180.0 + angle, color=color)
         ell.set_clip_box(splot.bbox)
-        ell.set_alpha(0.5)
+        ell.set_alpha(weight)
         splot.add_artist(ell)
 
-    plt.xlim(mean[0]-0.3, mean[0]+0.3)
-    plt.ylim(mean[1]-0.3, mean[1]+0.3)
+        plt_x = mean[0]
+        plt_y = mean[1]
+
+    plt.xlim(plt_x-1.0, plt_x+1.0)
+    plt.ylim(plt_y-1.0, plt_y+1.0)
     
     plt.xticks(())
     plt.yticks(())
@@ -118,8 +128,10 @@ class MyNode:
 
         self.mean = None
         self.covariance = None
+        self.weight = None
 
         rospy.Subscriber('gmm_mean', Float64MultiArray, self.MeanCallBack)
+        rospy.Subscriber('gmm_weight', Float64MultiArray, self.WeightCallBack)
         rospy.Subscriber('gmm_covar', Float64MultiArray, self.CovarCallBack)
 
 
@@ -136,6 +148,10 @@ class MyNode:
         # self.mean = np.array(tempArray)
         # print(np.shape(self.mean))
         # print(self.mean)
+
+    def WeightCallBack(self,data):
+        self.weight = to_numpy_f64(data)
+
     def CovarCallBack(self,data):
         self.covariance = to_numpy_f64(data)
 
@@ -161,12 +177,17 @@ class MyNode:
                 self.covariance,
                 1,
                 "Bayesian Gaussian Mixture with a Dirichlet process prior",
+                self.weight
                 )
 
 if __name__ == '__main__':
     plt.figure()
     plt.ion()
+
     node = MyNode()
-    # spin() simply keeps python from exiting until this node is stopped
+
     plt.show()
+    plt.close()
+    
+    # spin() simply keeps python from exiting until this node is stopped
     rospy.spin()
