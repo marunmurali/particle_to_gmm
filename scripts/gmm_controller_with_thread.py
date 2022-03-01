@@ -58,6 +58,7 @@ from std_msgs.msg import (Float32MultiArray, Float64MultiArray,
 
 from geometry_msgs.msg import PoseArray
 from geometry_msgs.msg import Pose
+from geometry_msgs.msg import Point
 from geometry_msgs.msg import PoseWithCovarianceStamped
 from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
@@ -136,7 +137,9 @@ def get_err_orient(theta):
 # Controller method
 def control_with_gmm(means, covariances, weights, odom): 
 
-    pubCmd = rospy.Publisher('cmd_vel', Twist, queue_size=10) 
+    pubCmd = rospy.Publisher('cmd_vel', Twist, queue_size=10)
+    pubError = rospy.Publisher('error', Point, queue_size=10)
+    error_msg = Point()
 
     linear_cmd = 0.0
     angular_cmd = 0.0
@@ -152,6 +155,12 @@ def control_with_gmm(means, covariances, weights, odom):
         theta = theta + 2.0 * np.pi
 
     orientation_err = get_err_orient(theta)
+
+    xForError = odom.pose.pose.position.x
+    yForError = odom.pose.pose.position.y
+    error_msg.x = get_err_position(xForError, yForError)
+    error_msg.y = orientation_err
+    error_msg.z = 0
 
     # for i, (m, covar) in enumerate(zip(means, covariances)):
     for i, (m, covar, weight) in enumerate(zip(means, covariances, weights)):
@@ -232,6 +241,7 @@ def control_with_gmm(means, covariances, weights, odom):
     cmd_vel_msg.angular.z = angular_cmd
     
     pubCmd.publish(cmd_vel_msg)
+    pubError.publish(error_msg)
     # pubCovar.publish(gmm_covar)
 
     
