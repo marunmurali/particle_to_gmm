@@ -66,6 +66,8 @@ from nav_msgs.msg import Odometry
 # import matplotlib as mpl
 # import matplotlib.pyplot as plt
 
+gmm_flag = rospy.get_param('gmm')
+
 orient_x = rospy.get_param('orient_x')
 orient_y = rospy.get_param('orient_y')
 goal_x = rospy.get_param('goal_x')
@@ -78,8 +80,8 @@ orient_ref = -np.arctan2(goal_x - orient_x, goal_y - orient_y)
 
 # k1 = -1.0
 k2 = -0.50
-k3 = - 0.1
-k4 = - 0.1
+k3 = -0.1
+k4 = -0.1
 
 gmm_mean = None
 gmm_covariance = None
@@ -152,9 +154,10 @@ def control_with_gmm(means, covariances, weights, amcl_pose, odom):
     orient_z = amcl_pose.pose.pose.orientation.z
     orient_w = amcl_pose.pose.pose.orientation.w
 
-
-
-    theta = 2 * np.arctan(orient_z / orient_w) - np.pi / 2
+    if orient_w == 0:   
+        theta = np.pi
+    else: 
+        theta = 2 * np.arctan(orient_z / orient_w) - np.pi / 2
 
     if theta < -np.pi: 
         theta = theta + 2.0 * np.pi
@@ -166,42 +169,78 @@ def control_with_gmm(means, covariances, weights, amcl_pose, odom):
 
     error_msg.x = get_err_position(xForError, yForError)
     error_msg.y = orientation_err
+
+    # rospy.loginfo('linear error: ' + str(error_msg.x))
+    # rospy.loginfo('angular error: ' + str(error_msg.y))
+
     # error_msg.z = 0
 
-    # for i, (m, covar) in enumerate(zip(means, covariances)):
-    for i, (m, covar, weight) in enumerate(zip(means, covariances, weights)):
+    # GMM path following
+    if gmm_flag: 
+
+        # for i, (m, covar) in enumerate(zip(means, covariances)):
+        for i, (m, covar, weight) in enumerate(zip(means, covariances, weights)):
+            
+            # print('i = ', i)
+            # print('m = ', m)
+            # print('covar = ', covar)
+            # print('weight = ', weight)
+            
+            eig_val, eig_vec = linalg.eigh(covar)
+
+            v = 2.0 * np.sqrt(5.991) * np.sqrt(eig_val)
+            u = eig_vec[0] / linalg.norm(eig_vec[0])
+            
+
+            angle = np.arctan(u[1] / u[0]) + 3 * np.pi / 2
+
+            if angle > 2 * np.pi: 
+                angle = angle - 2 * np.pi
+
+            # angle = 180.0 * angle / np.pi  # convert to degrees
+
+            x = m[0]
+            y = m[1]
+
+            b = v[0]
+            a = v[1]
+
+            x_err = get_err_position(x, y)
+
+            # On the direction of path
+            l1 = np.abs(b / 2 * np.cos(angle - orient_ref)) + np.abs(a / 2 * np.sin(angle - orient_ref))
+
+            # On the perpendicular direction
+            l2 = np.abs(b / 2 * np.sin(angle - orient_ref)) + np.abs(a / 2 * np.cos(angle - orient_ref))
+
+            if ((-np.sin(theta) * (-np.sin(orient_ref)) + np.cos(theta) * np.cos(orient_ref)) 
+                    * (goal_x - orient_x)) >= 0: 
+                k1 = -0.50
+            else: 
+                k1 = 0.50
+
+            k1 = k1 * np.abs(np.cos(orientation_err))
+            
+            cmd3 = k3 * l1
+
+            if np.abs(cmd3) > 0.05: 
+                cmd3 = cmd3 * 0.05 / np.abs(cmd3)
+
+            cmd4 = k4 * l2
+
+            if np.abs(cmd4) > 0.05: 
+                cmd4 = cmd4 * 0.05 / np.abs(cmd4)
+
+            angular_cmd += weight * (k1 * x_err + k2 * orientation_err) 
+
+            linear_cmd += weight * (cmd3 + cmd4)
+            
+            rospy.loginfo('controlling with gmm')
         
-        # print('i = ', i)
-        # print('m = ', m)
-        # print('covar = ', covar)
-        # print('weight = ', weight)
-        
-        eig_val, eig_vec = linalg.eigh(covar)
-
-        v = 2.0 * np.sqrt(5.991) * np.sqrt(eig_val)
-        u = eig_vec[0] / linalg.norm(eig_vec[0])
-        
-
-        angle = np.arctan(u[1] / u[0]) + 3 * np.pi / 2
-
-        if angle > 2 * np.pi: 
-            angle = angle - 2 * np.pi
-
-        # angle = 180.0 * angle / np.pi  # convert to degrees
-
-        x = m[0]
-        y = m[1]
-
-        b = v[0]
-        a = v[1]
-
+    else: 
+        x = amcl_pose.pose.pose.position.x
+        y = amcl_pose.pose.pose.position.y
         x_err = get_err_position(x, y)
-
-        # On the direction of path
-        l1 = np.abs(b / 2 * np.cos(angle - orient_ref)) + np.abs(a / 2 * np.sin(angle - orient_ref))
-
-        # On the perpendicular direction
-        l2 = np.abs(b / 2 * np.sin(angle - orient_ref)) + np.abs(a / 2 * np.cos(angle - orient_ref))
 
         if ((-np.sin(theta) * (-np.sin(orient_ref)) + np.cos(theta) * np.cos(orient_ref)) 
                 * (goal_x - orient_x)) >= 0: 
@@ -210,22 +249,14 @@ def control_with_gmm(means, covariances, weights, amcl_pose, odom):
             k1 = 0.50
 
         k1 = k1 * np.abs(np.cos(orientation_err))
-        
-        cmd3 = k3 * l1
 
-        if np.abs(cmd3) > 0.10: 
-            cmd3 = cmd3 * 0.10 / np.abs(cmd3)
+        angular_cmd = k1 * x_err + k2 * orientation_err + 0.2 * (np.random.random(1) - 0.5)
 
-        cmd4 = k4 * l2
+        linear_cmd = 0.0
 
-        if np.abs(cmd4) > 0.10: 
-            cmd4 = cmd4 * 0.10 / np.abs(cmd4)
+        rospy.loginfo('controlling w/o gmm')
 
-        angular_cmd += weight * (k1 * x_err + k2 * orientation_err)
-
-        linear_cmd += weight * (cmd3 + cmd4)
-
-        dist_goal = np.sqrt(np.power(goal_x - x, 2) + np.power(goal_y - y, 2))
+    dist_goal = np.sqrt(np.power(goal_x - x, 2) + np.power(goal_y - y, 2))
 
     # rospy.loginfo('linear command: ' + str(linear_cmd))
     # rospy.loginfo('angular command: ' + str(angular_cmd))
@@ -234,16 +265,16 @@ def control_with_gmm(means, covariances, weights, amcl_pose, odom):
 
     cmd_vel_msg = Twist()
 
-    cmd_vel_msg.linear.x = 0.20 + linear_cmd
+    cmd_vel_msg.linear.x = 0.15 + linear_cmd + 0.05 * (np.random.random(1) - 0.5)
         
     cmd_vel_msg.linear.y = 0.0    
     cmd_vel_msg.linear.z = 0.0
 
     cmd_vel_msg.angular.x = 0.0
     cmd_vel_msg.angular.y = 0.0
-    cmd_vel_msg.angular.z = angular_cmd
+    cmd_vel_msg.angular.z = angular_cmd + 0.1 * (np.random.random(1) - 0.5)
 
-    if dist_goal <= 0.2: 
+    if dist_goal <= 0.1: 
         cmd_vel_msg.linear.x = 0.0
         cmd_vel_msg.angular.z = 0.0
     
@@ -291,13 +322,12 @@ def callback_amcl_pose(data):
     amcl_pose = data; 
 
 def control(): 
-    r = rospy.Rate(5)
+    r = rospy.Rate(10)
     while not rospy.is_shutdown(): 
-        rospy.loginfo('controlling')
         if gmm_covariance is None or odom is None: 
             control_with_no_info()
         else: 
-            control_with_gmm(gmm_mean, gmm_covariance, gmm_weight, odom)
+            control_with_gmm(gmm_mean, gmm_covariance, gmm_weight, amcl_pose, odom)
         r.sleep()
 
 
