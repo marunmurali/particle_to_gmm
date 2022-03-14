@@ -67,8 +67,12 @@ def callback(data):
     # gmm_covar = []
     for i in range(len(data.poses)):
         newrow = ([data.poses[i].position.x, data.poses[i].position.y])
+        # Wanting to put orientation in a new array and calculate its mean to replace the orientation of odom
+
+
         PoseForGmmArr.append(newrow)
     PoseForGmm = np.array(PoseForGmmArr)
+    np.mean
     # print(PoseForGmm.shape)
     # dpgmm = mixture.BayesianGaussianMixture(n_components=5, covariance_type="full").fit(PoseForGmm)
     # dpgmm = BayesianGaussianMixture(n_components=5, covariance_type="full").fit(PoseForGmm)

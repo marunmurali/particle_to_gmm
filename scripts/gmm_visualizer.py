@@ -58,7 +58,9 @@ import matplotlib.pyplot as plt
 from numpy import linalg
 from functools import partial
 
-color_iter = itertools.cycle(["navy", "c", "cornflowerblue", "gold", "darkorange"])
+color_iter = itertools.cycle(['r', 'g', 'b'])
+# choosing element colors so that brightness is relatively close
+# color_iter = itertools.cycle(["navy", "c", "cornflowerblue", "gold", "darkorange"])
 
 def _numpy_to_multiarray(multiarray_type, np_array):
     multiarray = multiarray_type()
@@ -114,7 +116,7 @@ def plot_results(means, covariances, index, title, weights):
     plt.yticks(())
     plt.title(title)
     plt.draw()
-    plt.pause(0.00000000001)
+    plt.pause(0.1)
     
 
 class MyNode:
@@ -187,7 +189,7 @@ if __name__ == '__main__':
     node = MyNode()
 
     plt.show()
-    plt.close()
+    plt.close('all')
     
     # spin() simply keeps python from exiting until this node is stopped
     rospy.spin()
