@@ -265,16 +265,16 @@ def control_with_gmm(means, covariances, weights, amcl_pose, odom):
 
     cmd_vel_msg = Twist()
 
-    cmd_vel_msg.linear.x = 0.15 + linear_cmd + 0.05 * (np.random.random(1) - 0.5)
+    cmd_vel_msg.linear.x = 0.20 + linear_cmd + 0.1 * (np.random.random(1) - 0.5)
         
     cmd_vel_msg.linear.y = 0.0    
     cmd_vel_msg.linear.z = 0.0
 
     cmd_vel_msg.angular.x = 0.0
     cmd_vel_msg.angular.y = 0.0
-    cmd_vel_msg.angular.z = angular_cmd + 0.1 * (np.random.random(1) - 0.5)
+    cmd_vel_msg.angular.z = angular_cmd + 0.2 * (np.random.random(1) - 0.5)
 
-    if dist_goal <= 0.1: 
+    if dist_goal <= 0.2: 
         cmd_vel_msg.linear.x = 0.0
         cmd_vel_msg.angular.z = 0.0
     
@@ -317,12 +317,21 @@ def callback_gmm_weight(data):
     gmm_weight = to_numpy_f64(data)
 
 def callback_amcl_pose(data):
+    repub_amcl_pose = rospy.Publisher('amcl_pose', PoseWithCovarianceStamped, queue_size=10)
     global amcl_pose
     rospy.loginfo('received amcl_pose')
     amcl_pose = data; 
 
+    amcl_pose.pose.pose.position.x += 0.03 * np.random.randn()
+    amcl_pose.pose.pose.position.y += 0.03 * np.random.randn()
+
+    repub_amcl_pose.publish(amcl_pose)
+
+    # Let's add random error with AMCL pose and republish it so we can see it in RViz. 
+    # However this doesn't seem to work well...
+
 def control(): 
-    r = rospy.Rate(10)
+    r = rospy.Rate(20)
     while not rospy.is_shutdown(): 
         if gmm_covariance is None or odom is None: 
             control_with_no_info()

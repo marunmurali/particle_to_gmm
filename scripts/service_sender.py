@@ -10,12 +10,11 @@ def send_amcl_service():
 
     r = rospy.Rate(2)
 
-    s = rospy.ServiceProxy('request_nomotion_update', Empty)
-
-    while not rospy.is_shutdown():
+    s = rospy.ServiceProxy('global_localization', Empty)
+    # s = rospy.ServiceProxy('request_nomotion_update', Empty)
+    
+    if not rospy.is_shutdown():
         s()
-
-        r.sleep()
 
 
 if __name__ == "__main__":

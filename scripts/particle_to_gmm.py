@@ -72,7 +72,7 @@ def callback(data):
 
         PoseForGmmArr.append(newrow)
     PoseForGmm = np.array(PoseForGmmArr)
-    np.mean
+    # np.mean
     # print(PoseForGmm.shape)
     # dpgmm = mixture.BayesianGaussianMixture(n_components=5, covariance_type="full").fit(PoseForGmm)
     # dpgmm = BayesianGaussianMixture(n_components=5, covariance_type="full").fit(PoseForGmm)
