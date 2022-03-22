@@ -28,7 +28,7 @@ from sensor_msgs.msg import LaserScan
 
 # Global variables
 
-n = rospy.get_param('num_of_gmm_dist')
+# n = rospy.get_param('num_of_gmm_dist')
 
 
 # Methods
@@ -39,12 +39,17 @@ def callback(data):
 
     
     
-    pub_scan = rospy.Publisher('new_scan', LaserScan, queue_size=None)
+    pub_scan = rospy.Publisher('new_scan', LaserScan, queue_size=1)
 
     new_scan = data
 
-    for i in range(len(new_scan.ranges)):
-        new_scan.ranges[i] = new_scan.ranges[i] + 0.1 * (np.random.random(1) - 0.5)
+    new_ranges = list(new_scan.ranges)
+
+
+    for i in range(len(new_ranges)):
+        new_ranges[i] = new_ranges[i] + 0.20 * (np.random.random(1) - 0.5)
+
+    new_scan.ranges = tuple(new_ranges)
 
     pub_scan.publish(new_scan)
 
