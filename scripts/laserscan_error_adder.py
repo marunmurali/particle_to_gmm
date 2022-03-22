@@ -13,6 +13,7 @@ import numpy as np
 from sklearn import mixture
 # from sklearn.mixture import BayesianGaussianMixture
 
+from sensor_msgs.msg import LaserScan
 # from std_msgs.msg import String
 from std_msgs.msg import MultiArrayDimension
 from std_msgs.msg import (Float32MultiArray, Float64MultiArray,
@@ -98,29 +99,28 @@ def callback(data):
     rospy.loginfo("Runtime of GMM publisher is %f" % (end - start))
 
 
-def toMultiArray(matrix):
-    temp = Float64MultiArray()
-    # TODO empty the temp
-    # write layout
-    for i in range(np.size(np.shape(matrix))):
-        shapeArr = np.shape(matrix)
-        # print("loop from to")
-        # print(i)
-        # print(np.size(np.shape(matrix)))
-        # print("shape")
-        # print(np.shape(matrix))
-        # print("element")
-        # print(shapeArr[i])
-        # print(np.shape(matrix))
-        temp.layout.dim.append(MultiArrayDimension())
-        temp.layout.dim[i].label = "dim"+str(i)
-        temp.layout.dim[i].size = shapeArr[i]
-        temp.layout.dim[i].stride = matrix.strides[i]
-    temp.layout.data_offset = 0
-    # write data
-    temp.data = matrix.flatten()
-
-    return temp
+# def toMultiArray(matrix):
+#     temp = Float64MultiArray()
+#     # TODO empty the temp
+#     # write layout
+#     for i in range(np.size(np.shape(matrix))):
+#         shapeArr = np.shape(matrix)
+#         # print("loop from to")
+#         # print(i)
+#         # print(np.size(np.shape(matrix)))
+#         # print("shape")
+#         # print(np.shape(matrix))
+#         # print("element")
+#         # print(shapeArr[i])
+#         # print(np.shape(matrix))
+#         temp.layout.dim.append(MultiArrayDimension())
+#         temp.layout.dim[i].label = "dim"+str(i)
+#         temp.layout.dim[i].size = shapeArr[i]
+#         temp.layout.dim[i].stride = matrix.strides[i]
+#     temp.layout.data_offset = 0
+#     # write data
+#     temp.data = matrix.flatten()
+#     return temp
 
 
 def listener():
@@ -130,9 +130,9 @@ def listener():
     # anonymous=True flag means that rospy will choose a unique
     # name for our 'listener' node so that multiple listeners can
     # run simultaneously.
-    rospy.init_node('particle_to_gmm', anonymous=True)
+    rospy.init_node('laserscan_error_adder', anonymous=True)
 
-    rospy.Subscriber('particlecloud', PoseArray, callback)
+    rospy.Subscriber('scan', LaserScan, callback)
 
     # spin() simply keeps python from exiting until this node is stopped
     rospy.spin()
