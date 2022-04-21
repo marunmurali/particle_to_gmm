@@ -10,6 +10,7 @@
 
   <arg name="x" default="-28.5"/>
   <arg name="y" default="-6.0"/>    
+  <arg name="a" default="0.0"/>  
 
   <!-- Turtlebot3 -->
   <include file="$(find turtlebot3_bringup)/launch/turtlebot3_remote.launch">
@@ -23,6 +24,7 @@
   <include file="$(find particle_to_gmm)/launch/amcl.launch">
     <arg name="initial_pose_x" value="$(arg x)" />
     <arg name="initial_pose_y" value="$(arg y)"/>
+    <arg name="initial_pose_a" value="$(arg a)"/>
   </include>
 
   <!-- move_base -->
@@ -36,4 +38,8 @@
     <node pkg="rviz" type="rviz" name="rviz" required="true"
           args="-d $(find turtlebot3_navigation)/rviz/turtlebot3_navigation.rviz"/>
   </group>
+
+  <node pkg="particle_to_gmm" type="laserscan_error_adder.py" name="laserscan_error_adder" output="screen">
+  </node> 
+
 </launch>

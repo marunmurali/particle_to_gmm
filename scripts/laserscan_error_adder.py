@@ -47,7 +47,7 @@ def callback(data):
 
 
     for i in range(len(new_ranges)):
-        new_ranges[i] = new_ranges[i] + 0.20 * (np.random.random(1) - 0.5)
+        new_ranges[i] = new_ranges[i] * (1 + 0.10 * np.random.randn())
 
     new_scan.ranges = tuple(new_ranges)
 

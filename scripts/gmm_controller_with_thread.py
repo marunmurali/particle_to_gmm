@@ -88,6 +88,39 @@ gmm_covariance = None
 gmm_weight = None
 odom = Odometry()
 
+move_stop = 0
+turn_stop = 0
+
+def quaternion_to_rad(z, w): 
+    if w == 0:   
+        rad = np.pi
+    else: 
+        rad = 2 * np.arctan(z / w) - np.pi / 2
+
+    if rad < -np.pi: 
+        rad = rad + 2.0 * np.pi
+
+    return rad
+
+
+def rad_to_quaternion(rad): 
+
+    rad += np.pi / 2
+
+    rad /= 2
+
+    quaternion = [0, 0, 0, 0]
+
+    quaternion[0] = 0
+    quaternion[1] = 0
+
+    quaternion[2] = np.sin(rad)
+
+    quaternion[3] = np.cos(rad)
+        
+    return quaternion
+
+
 # Data conversion methods
 def _numpy_to_multiarray(multiarray_type, np_array):
     multiarray = multiarray_type()
@@ -107,9 +140,12 @@ def _multiarray_to_numpy(pytype, dtype, multiarray):
     # print(dtype)
     return np.array(multiarray.data, dtype=pytype).reshape(dims).astype(dtype)
 
+
 to_multiarray_f64 = partial(_numpy_to_multiarray, Float64MultiArray)
 
+
 to_numpy_f64 = partial(_multiarray_to_numpy, float, np.float64)
+
 
 # Pose calculation methods
 def get_err_position(x, y):
@@ -137,7 +173,7 @@ def get_err_orient(theta):
 
 
 # Controller method
-def control_with_gmm(means, covariances, weights, amcl_pose, odom): 
+def control_with_gmm(means, covariances, weights, amcl_pose, new_amcl_pose, odom): 
 
     pubCmd = rospy.Publisher('cmd_vel', Twist, queue_size=10)
     pubError = rospy.Publisher('error', Point, queue_size=10)
@@ -146,26 +182,24 @@ def control_with_gmm(means, covariances, weights, amcl_pose, odom):
     linear_cmd = 0.0
     angular_cmd = 0.0
 
-    dist_goal = 0.0
-
     # orient_z = odom.pose.pose.orientation.z
     # orient_w = odom.pose.pose.orientation.w
 
-    orient_z = amcl_pose.pose.pose.orientation.z
-    orient_w = amcl_pose.pose.pose.orientation.w
+    # orient_z = amcl_pose.pose.pose.orientation.z
+    # orient_w = amcl_pose.pose.pose.orientation.w
 
-    if orient_w == 0:   
-        theta = np.pi
-    else: 
-        theta = 2 * np.arctan(orient_z / orient_w) - np.pi / 2
+    orient_z = new_amcl_pose.pose.pose.orientation.z
+    orient_w = new_amcl_pose.pose.pose.orientation.w
 
-    if theta < -np.pi: 
-        theta = theta + 2.0 * np.pi
+    theta = quaternion_to_rad(orient_z, orient_w)
 
     orientation_err = get_err_orient(theta)
 
     xForError = amcl_pose.pose.pose.position.x
     yForError = amcl_pose.pose.pose.position.y
+
+    xForError = new_amcl_pose.pose.pose.position.x
+    yForError = new_amcl_pose.pose.pose.position.y
 
     error_msg.x = get_err_position(xForError, yForError)
     error_msg.y = orientation_err
@@ -238,8 +272,8 @@ def control_with_gmm(means, covariances, weights, amcl_pose, odom):
             rospy.loginfo('controlling with gmm')
         
     else: 
-        x = amcl_pose.pose.pose.position.x
-        y = amcl_pose.pose.pose.position.y
+        x = new_amcl_pose.pose.pose.position.x
+        y = new_amcl_pose.pose.pose.position.y
         x_err = get_err_position(x, y)
 
         if ((-np.sin(theta) * (-np.sin(orient_ref)) + np.cos(theta) * np.cos(orient_ref)) 
@@ -250,13 +284,14 @@ def control_with_gmm(means, covariances, weights, amcl_pose, odom):
 
         k1 = k1 * np.abs(np.cos(orientation_err))
 
-        angular_cmd = k1 * x_err + k2 * orientation_err + 0.2 * (np.random.random(1) - 0.5)
+        angular_cmd = k1 * x_err + k2 * orientation_err
+        # angular_cmd = k1 * x_err + k2 * orientation_err + 0.2 * (np.random.random(1) - 0.5)
 
         linear_cmd = 0.0
 
         rospy.loginfo('controlling w/o gmm')
 
-    dist_goal = np.sqrt(np.power(goal_x - x, 2) + np.power(goal_y - y, 2))
+    dist_goal = np.sqrt(np.power(x - goal_x, 2) + np.power(y - goal_y, 2))
 
     # rospy.loginfo('linear command: ' + str(linear_cmd))
     # rospy.loginfo('angular command: ' + str(angular_cmd))
@@ -272,10 +307,10 @@ def control_with_gmm(means, covariances, weights, amcl_pose, odom):
 
     cmd_vel_msg.angular.x = 0.0
     cmd_vel_msg.angular.y = 0.0
-    cmd_vel_msg.angular.z = angular_cmd + 0.2 * (np.random.random(1) - 0.5)
+    cmd_vel_msg.angular.z = angular_cmd
 
     if dist_goal <= 0.2: 
-        cmd_vel_msg.linear.x = 0.0
+        # cmd_vel_msg.linear.x = 0.0
         cmd_vel_msg.angular.z = 0.0
     
     pubCmd.publish(cmd_vel_msg)
@@ -296,7 +331,7 @@ def control_with_no_info():
 
     cmd_vel_msg.angular.x = 0.0
     cmd_vel_msg.angular.y = 0.0
-    cmd_vel_msg.angular.z = 0.5
+    cmd_vel_msg.angular.z = 0.0
     
     pubCmd.publish(cmd_vel_msg)
 
@@ -317,27 +352,57 @@ def callback_gmm_weight(data):
     gmm_weight = to_numpy_f64(data)
 
 def callback_amcl_pose(data):
-    repub_amcl_pose = rospy.Publisher('amcl_pose', PoseWithCovarianceStamped, queue_size=10)
-    global amcl_pose
+    repub_amcl_pose = rospy.Publisher('new_amcl_pose', PoseWithCovarianceStamped, queue_size=10)
+    global amcl_pose, new_amcl_pose
     rospy.loginfo('received amcl_pose')
     amcl_pose = data; 
 
-    amcl_pose.pose.pose.position.x += 0.03 * np.random.randn()
-    amcl_pose.pose.pose.position.y += 0.03 * np.random.randn()
+    new_amcl_pose = amcl_pose
 
-    repub_amcl_pose.publish(amcl_pose)
+    r = 0.2 * np.random.randn()
+
+    direction = 2 * np.pi * np.random.random(1)
+
+    new_amcl_pose.pose.pose.position.x += r * np.cos(direction)
+    new_amcl_pose.pose.pose.position.y += r * np.sin(direction)
+
+    orient = quaternion_to_rad(new_amcl_pose.pose.pose.orientation.z, new_amcl_pose.pose.pose.orientation.w)
+
+    orient += np.pi / 18 * np.random.randn()
+
+    new_amcl_pose.pose.pose.orientation.z = rad_to_quaternion(orient)[2]
+
+    new_amcl_pose.pose.pose.orientation.w = rad_to_quaternion(orient)[3]
+
+    repub_amcl_pose.publish(new_amcl_pose)
 
     # Let's add random error with AMCL pose and republish it so we can see it in RViz. 
     # However this doesn't seem to work well...
 
+    # pubError = rospy.Publisher('error', Point, queue_size=10)
+    # error_msg = Point()
+
+    # xForError = amcl_pose.pose.pose.position.x
+    # yForError = amcl_pose.pose.pose.position.y
+
+    # error_msg.x = get_err_position(xForError, yForError)
+
+    # orient_z = new_amcl_pose.pose.pose.orientation.z
+    # orient_w = new_amcl_pose.pose.pose.orientation.w
+    
+    # error_msg.y = get_err_orient(quaternion_to_rad(orient_z, orient_w))
+
+    # pubError.publish(error_msg)
+
+
 def control(): 
-    r = rospy.Rate(20)
+    # r = rospy.Rate(100)
     while not rospy.is_shutdown(): 
         if gmm_covariance is None or odom is None: 
             control_with_no_info()
         else: 
-            control_with_gmm(gmm_mean, gmm_covariance, gmm_weight, amcl_pose, odom)
-        r.sleep()
+            control_with_gmm(gmm_mean, gmm_covariance, gmm_weight, amcl_pose, new_amcl_pose, odom)
+        # r.sleep()
 
 
 # Main method
