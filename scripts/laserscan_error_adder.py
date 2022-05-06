@@ -10,8 +10,6 @@
 import rospy
 import time
 import numpy as np
-from sklearn import mixture
-# from sklearn.mixture import BayesianGaussianMixture
 
 from sensor_msgs.msg import LaserScan
 # from std_msgs.msg import String
@@ -28,7 +26,9 @@ from sensor_msgs.msg import LaserScan
 
 # Global variables
 
-# n = rospy.get_param('num_of_gmm_dist')
+add_noise = rospy.get_param('lidar_noise')
+
+# add_noise = True
 
 
 # Methods
@@ -43,13 +43,18 @@ def callback(data):
 
     new_scan = data
 
-    new_ranges = list(new_scan.ranges)
+    if add_noise and (not (data is None)): 
+        new_ranges = list(new_scan.ranges)
 
+        for i in range(len(new_ranges)): 
+            error = new_ranges[i] * 0.10 * np.random.randn()
 
-    for i in range(len(new_ranges)):
-        new_ranges[i] = new_ranges[i] * (1 + 0.10 * np.random.randn())
+            if np.abs(error) > 1.0:
+                error = error / np.abs(error)
 
-    new_scan.ranges = tuple(new_ranges)
+            new_ranges[i] = new_ranges[i] + error
+
+        new_scan.ranges = tuple(new_ranges)
 
     pub_scan.publish(new_scan)
 
