@@ -11,12 +11,12 @@
   <arg name="lidar_noise" default="true"/>
 
   <!-- corridor route 1-->
-  <!-- <arg name="x" default="-28.5"/>
+  <arg name="x" default="-28.5"/>
   <arg name="y" default="-6.0"/>    
-  <arg name="a" default="0.0"/>   -->
-  <arg name="x" default="-0.5"/>
-  <arg name="y" default="-0.0"/>    
   <arg name="a" default="0.0"/>  
+  <!-- <arg name="x" default="-0.5"/>
+  <arg name="y" default="-0.0"/>    
+  <arg name="a" default="0.0"/>   -->
 
   <!-- corridor route 2-->
   <!-- <arg name="x" default="-45.0"/>
