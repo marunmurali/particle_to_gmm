@@ -5,9 +5,9 @@
   <arg name="num_of_gmm_dist" default="3"/>
 
   <!-- corridor route 1-->
-  <!-- <arg name="orient_x" default="-29.0"/>
-  <arg name="orient_y" default="-8.0"/>
-  <arg name="goal_x" default="-30.0"/>
+  <!-- <arg name="orient_x" default="-27.5"/>
+  <arg name="orient_y" default="-6.0"/>
+  <arg name="goal_x" default="-31.5"/>
   <arg name="goal_y" default="5.0"/> -->
 
   <!-- corridor route 2-->
@@ -17,10 +17,10 @@
   <arg name="goal_y" default="0.0"/> -->
 
   <!-- campus route 1-->
-  <arg name="orient_x" default="35.0"/>
-  <arg name="orient_y" default="-95.0"/>
-  <arg name="goal_x" default="66.0"/>
-  <arg name="goal_y" default="-78.0"/>
+  <arg name="orient_x" default="37.0"/>
+  <arg name="orient_y" default="-97.0"/>
+  <arg name="goal_x" default="55.0"/>
+  <arg name="goal_y" default="-87.0"/>
 
   <arg name="gmm" default="true"/>
   
@@ -38,8 +38,8 @@
         type="rqt_plot"
         args="/error/x /error/y" />
 
-  <!-- <node pkg="particle_to_gmm" type="gmm_visualizer.py" name="gmm_visualizer" output="screen">
-  </node> -->
+  <node pkg="particle_to_gmm" type="gmm_visualizer.py" name="gmm_visualizer" output="screen">
+  </node>
 
   <node pkg="particle_to_gmm" type="particle_to_gmm.py" name="particle_to_gmm" output="screen">
   </node>

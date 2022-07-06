@@ -139,14 +139,14 @@
     <population name="person1_population1">
       <model name="person1">
         <include>
-          <uri>model://number1</uri>
+          <uri>model://person_walking</uri>
         </include>
       </model>
       <pose>-29.5 -0.5 0 0 0 0</pose>
       <box>
-        <size>5 20 0.5</size>
+        <size>3 15 2.0</size>
       </box>
-      <model_count>15</model_count>
+      <model_count>8</model_count>
       <distribution>
         <type>random</type>
       </distribution>

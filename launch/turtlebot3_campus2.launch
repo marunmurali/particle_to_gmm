@@ -1,7 +1,7 @@
 <launch>
   <arg name="model" default="$(env TURTLEBOT3_MODEL)" doc="model type [burger, waffle, waffle_pi]"/>
-  <arg name="x_pos" default="35.0"/>
-  <arg name="y_pos" default="-95.0"/>
+  <arg name="x_pos" default="37.0"/>
+  <arg name="y_pos" default="-97.0"/>
   <arg name="z_pos" default="0.0"/>
 
   <!-- <env name="GAZEBO_MODEL_PATH" value="$(env HOME)/catkin_ws/src/turtlebot3_simulations/turtlebot3_gazebo/worlds/models:$(optenv GAZEBO_MODEL_PATH)" /> -->

@@ -8,9 +8,9 @@
   <!-- AMCL -->
   <node pkg="amcl" type="amcl" name="amcl">
 
-    <param name="min_particles"             value="2000"/>
+    <param name="min_particles"             value="3000"/>
     <!-- 500 -->
-    <param name="max_particles"             value="2000"/>
+    <param name="max_particles"             value="3000"/>
     <!-- 3000 -->
     <param name="kld_err"                   value="0.02"/>
     <param name="update_min_d"              value="0.10"/>
