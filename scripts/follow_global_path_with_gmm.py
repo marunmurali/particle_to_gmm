@@ -6,8 +6,9 @@
 # Imports
 
 # Basics
+
 from importlib.resources import path
-from random import random
+import random
 import threading
 import rospy
 import time
@@ -26,7 +27,7 @@ from std_msgs.msg import (Float32MultiArray, Float64MultiArray,
                           UInt8MultiArray, UInt16MultiArray,
                           UInt32MultiArray, UInt64MultiArray)
 
-from geometry_msgs.msg import (PoseArray, Pose, Point, PoseWithCovarianceStamped, Twist)
+from geometry_msgs.msg import (PoseArray, Pose, Point, PoseWithCovarianceStamped, Twist, PoseStamped)
 from nav_msgs.msg import (Odometry, Path)
 
 
@@ -34,8 +35,9 @@ from nav_msgs.msg import (Odometry, Path)
 
 # ROS parameters
 # gmm_flag = rospy.get_param('gmm')
-dwa_random_param = 100
+dwa_random_param = 300
 
+dwa_horizon_param = 20
 
 # Storaged data
 
@@ -44,6 +46,8 @@ gmm_covariance = None
 gmm_weight = None
 
 MSE_array = None
+
+planned_path = None
 
 t_interval = 0.1
 
@@ -56,6 +60,11 @@ start_time = None
 
 mse_list = []
 mse_calculation = 0
+
+goal_x = 0
+goal_y = 0
+goal_z = 0
+goal_w = 0
 
 # Methods
 
@@ -90,6 +99,12 @@ def rad_to_quaternion(rad):
     return quaternion
 
 
+def linear_distance(x1, x2, y1, y2): 
+    d = np.sqrt(np.power(x1 - x2, 2) + np.power(y1 - y2, 2))
+
+    return d
+
+
 # Data type conversion
 def _numpy_to_multiarray(multiarray_type, np_array):
     multiarray = multiarray_type()
@@ -120,11 +135,16 @@ to_numpy_f64 = partial(_multiarray_to_numpy, float, np.float64)
 def control_with_gmm(): 
 
     global odom, gmm_mean, gmm_covariance, gmm_weight
+    global goal_x, goal_y, goal_z, goal_w
+
+    
     # Initialize command publisher
     pubCmd = rospy.Publisher('cmd_vel', Twist, queue_size=10)
-    pubError = rospy.Publisher('error', Point, queue_size=10)
+    # pubError = rospy.Publisher('error', Point, queue_size=10)
 
-    original_v = odom.twist.twist.linear
+    goal_rad = quaternion_to_rad(goal_z, goal_w)
+
+    original_v = odom.twist.twist.linear.x
 
     original_x = odom.pose.pose.position.x
     original_y = odom.pose.pose.position.y
@@ -132,28 +152,93 @@ def control_with_gmm():
     original_z = odom.pose.pose.orientation.z
     original_w = odom.pose.pose.orientation.w
 
+    original_heading = quaternion_to_rad(original_z, original_w)
+
+    rospy.loginfo('heading: ' + str(original_heading))
+
     original_angular = odom.twist.twist.angular.z
     
+    optimal_v = 0.0 
+    optimal_a = 0.0
+
+    optimal_cost_function = np.inf
+
     for i in range(dwa_random_param): 
-        rand1 = random()
-        rand2 = random()
+        rand1 = random.random() - 0.5
+        rand2 = random.random() - 0.5
 
         v = original_v + 0.10 * rand1
         
-        if v <= 0.05: 
-            v = 0.05
+        if v <= -0.25: 
+            v = -0.25
         
         if v >= 0.25: 
             v = 0.25
 
-        a = original_angular + 1.0 * rand2
+        a = original_angular + 0.10 * rand2
 
-        x = original_x + t_interval * v * np.cos(0)
+        if a > 0.25: 
+            a = 0.25
         
+        if a < -0.25: 
+            a = -0.25
 
+        h = original_heading
+        x = original_x
+        y = original_y
 
+        for j in range(dwa_horizon_param): 
 
+            x -= t_interval * v * np.cos(h)
+            y += t_interval * v * np.sin(h)
 
+            h += t_interval * a
+
+        min_distance = np.inf
+
+        # Calculating minimal distance to the path
+        for i, pose in enumerate(planned_path):  
+
+            d = linear_distance(x, pose.pose.position.x, y, pose.pose.position.y)
+
+            if d < min_distance: 
+                min_distance = d
+
+        rad_diff = np.abs(goal_rad - h) 
+        if rad_diff > np.pi: 
+            rad_diff -= np.pi
+
+        remaining_distance = linear_distance(x, y, goal_x, goal_y)
+
+        cost_function = 100 * min_distance + 0.01 / np.pi * rad_diff + 0.01 * remaining_distance
+
+        if cost_function < optimal_cost_function: 
+            optimal_v = v
+            optimal_a = a
+
+    cmd_vel_msg = Twist()
+
+    cmd_vel_msg.linear.x = optimal_v        
+    cmd_vel_msg.linear.y = 0.0    
+    cmd_vel_msg.linear.z = 0.0
+
+    cmd_vel_msg.angular.x = 0.0
+    cmd_vel_msg.angular.y = 0.0
+    cmd_vel_msg.angular.z = optimal_a
+
+    # global stop_flag
+
+    # if linear_distance(original_x, goal_x, original_y, goal_y) < 0.2: 
+    #     stop_flag = 1
+
+    # if stop_flag == 1: 
+    #     cmd_vel_msg.linear.x = 0.0
+    #     cmd_vel_msg.angular.z = 0.0    
+
+    pubCmd.publish(cmd_vel_msg)
+
+    # rospy.loginfo('v: ' + str(v))
+    # rospy.loginfo('a: ' + str(a))
 
 
 
@@ -217,6 +302,16 @@ def callback_path(data):
     planned_path = data.poses
 
 
+def callback_goal(data): 
+    global goal_x, goal_y, goal_z, global_w
+
+    goal_x = data.pose.position.x
+    goal_y = data.pose.position.y
+
+    goal_z = data.pose.orientation.z
+    goal_w = data.pose.orientation.w
+
+
 def control(): 
     r = rospy.Rate(10)
 
@@ -233,10 +328,11 @@ def control():
         if planned_path is None: 
             rospy.loginfo('Waiting for path...')
         else: 
-            if gmm_mean is None or gmm_covariance is None or gmm_weight is None: 
-                control_with_no_gmm()
-            else: 
-                control_with_gmm() 
+            # if gmm_mean is None or gmm_covariance is None or gmm_weight is None: 
+            #     control_with_no_gmm()
+            # else: 
+            #     control_with_gmm() 
+            control_with_gmm()
         r.sleep()
 
 
@@ -261,6 +357,8 @@ if __name__ == '__main__':
     sub_odom = rospy.Subscriber('odom', Odometry, callback_odom)
 
     sub_path = rospy.Subscriber('move_base/NavfnROS/plan', Path, callback_path)
+
+    sub_goal = rospy.Subscriber('/move_base_simple/goal', PoseStamped, callback_goal)
 
     control_thread = threading.Thread(target=control)
     control_thread.start()
