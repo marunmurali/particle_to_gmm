@@ -54,26 +54,28 @@ t_interval = 0.1
 odom = Odometry()
 error_msg = Point()
 
-stop_flag = 0
+stop_flag = False
 
 start_time = None
 
-mse_list = []
-mse_calculation = 0
+# mse_list = []
+# mse_calculation = 0
 
-goal_x = 0
-goal_y = 0
-goal_z = 0
-goal_w = 0
+goal_x = 0.0
+goal_y = 0.0
+goal_z = 0.0
+goal_w = 0.0
+
+goal_heading = 0.0
 
 # Methods
 
 # Conversion between angles and quaternions
 def quaternion_to_rad(z, w): 
-    if w == 0:   
+    if w == 0.0:   
         rad = np.pi
     else: 
-        rad = 2 * np.arctan(z / w) - np.pi / 2
+        rad = 2.0 * np.arctan(z / w) - np.pi / 2.0
 
     if rad < -np.pi: 
         rad = rad + 2.0 * np.pi
@@ -134,15 +136,13 @@ to_numpy_f64 = partial(_multiarray_to_numpy, float, np.float64)
 # Controller method
 def control_with_gmm(): 
 
+    # Global variables
     global odom, gmm_mean, gmm_covariance, gmm_weight
     global goal_x, goal_y, goal_z, goal_w
 
-    
     # Initialize command publisher
-    pubCmd = rospy.Publisher('cmd_vel', Twist, queue_size=10)
+    pubCmd = rospy.Publisher('cmd_vel', Twist, queue_size = 10)
     # pubError = rospy.Publisher('error', Point, queue_size=10)
-
-    goal_rad = quaternion_to_rad(goal_z, goal_w)
 
     original_v = odom.twist.twist.linear.x
 
@@ -154,7 +154,9 @@ def control_with_gmm():
 
     original_heading = quaternion_to_rad(original_z, original_w)
 
-    rospy.loginfo('heading: ' + str(original_heading))
+    # rospy.loginfo('x: ' + str(original_x))
+    # rospy.loginfo('y: ' + str(original_y))
+    # rospy.loginfo('heading: ' + str(original_heading))
 
     original_angular = odom.twist.twist.angular.z
     
@@ -167,7 +169,7 @@ def control_with_gmm():
         rand1 = random.random() - 0.5
         rand2 = random.random() - 0.5
 
-        v = original_v + 0.10 * rand1
+        v = original_v + 0.5 * rand1
         
         if v <= -0.25: 
             v = -0.25
@@ -175,13 +177,13 @@ def control_with_gmm():
         if v >= 0.25: 
             v = 0.25
 
-        a = original_angular + 0.10 * rand2
+        a = original_angular + 1.00 * rand2
 
-        if a > 0.25: 
-            a = 0.25
+        if a > 0.50: 
+            a = 0.50
         
-        if a < -0.25: 
-            a = -0.25
+        if a < -0.50: 
+            a = -0.50
 
         h = original_heading
         x = original_x
@@ -189,8 +191,8 @@ def control_with_gmm():
 
         for j in range(dwa_horizon_param): 
 
-            x -= t_interval * v * np.cos(h)
-            y += t_interval * v * np.sin(h)
+            x -= t_interval * v * np.sin(h)
+            y += t_interval * v * np.cos(h)
 
             h += t_interval * a
 
@@ -204,13 +206,14 @@ def control_with_gmm():
             if d < min_distance: 
                 min_distance = d
 
-        rad_diff = np.abs(goal_rad - h) 
+        # angular difference
+        rad_diff = np.abs(goal_heading - h) 
         if rad_diff > np.pi: 
-            rad_diff -= np.pi
+            rad_diff = 2 * np.pi - rad_diff
 
         remaining_distance = linear_distance(x, y, goal_x, goal_y)
 
-        cost_function = 100 * min_distance + 0.01 / np.pi * rad_diff + 0.01 * remaining_distance
+        cost_function = 1 * min_distance + 0.01 / np.pi * rad_diff + 10 * remaining_distance
 
         if cost_function < optimal_cost_function: 
             optimal_v = v
@@ -229,9 +232,9 @@ def control_with_gmm():
     # global stop_flag
 
     # if linear_distance(original_x, goal_x, original_y, goal_y) < 0.2: 
-    #     stop_flag = 1
+    #     stop_flag = True
 
-    # if stop_flag == 1: 
+    # if stop_flag == True: 
     #     cmd_vel_msg.linear.x = 0.0
     #     cmd_vel_msg.angular.z = 0.0    
 
@@ -244,7 +247,7 @@ def control_with_gmm():
 
     
 def control_with_no_gmm(): 
-    pubCmd = rospy.Publisher('cmd_vel', Twist, queue_size=10) 
+    pubCmd = rospy.Publisher('cmd_vel', Twist, queue_size = 10) 
 
     global error_msg, odom
 
@@ -303,7 +306,7 @@ def callback_path(data):
 
 
 def callback_goal(data): 
-    global goal_x, goal_y, goal_z, global_w
+    global goal_x, goal_y, goal_z, goal_w, goal_heading
 
     goal_x = data.pose.position.x
     goal_y = data.pose.position.y
@@ -311,6 +314,9 @@ def callback_goal(data):
     goal_z = data.pose.orientation.z
     goal_w = data.pose.orientation.w
 
+    goal_heading = quaternion_to_rad(goal_z, goal_w)
+
+    rospy.loginfo('heading of goal: ' + str(goal_heading))
 
 def control(): 
     r = rospy.Rate(10)
