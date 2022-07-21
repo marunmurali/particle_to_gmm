@@ -70,7 +70,7 @@ goal_heading = 0.0
 
 # Methods
 
-# Conversion between angles and quaternions
+# Conversion between angles(radients) and quaternions
 def quaternion_to_rad(z, w): 
     if w == 0.0:   
         rad = np.pi
@@ -163,61 +163,56 @@ def control_with_gmm():
     optimal_v = 0.0 
     optimal_a = 0.0
 
+    v_range = np.array([-0.1, -0.05, 0.05, 0.10, 0.15, 0.20, 0.25])
+
+    a_range = np.array([-0.5, -0.4, -0.3, -0.2, -0.1, 0.0, 0.1, 0.2, 0.3, 0.4, 0.5])
+
     optimal_cost_function = np.inf
 
-    for i in range(dwa_random_param): 
-        rand1 = random.random() - 0.5
-        rand2 = random.random() - 0.5
+    for i in range(len(v_range)): 
 
-        v = original_v + 0.5 * rand1
-        
-        if v <= -0.25: 
-            v = -0.25
-        
-        if v >= 0.25: 
-            v = 0.25
+        for j in range(len(a_range)): 
 
-        a = original_angular + 1.00 * rand2
+            v = v_range[i]
 
-        if a > 0.50: 
-            a = 0.50
-        
-        if a < -0.50: 
-            a = -0.50
+            a = a_range[j]
 
-        h = original_heading
-        x = original_x
-        y = original_y
+            h = original_heading
+            x = original_x
+            y = original_y
 
-        for j in range(dwa_horizon_param): 
+            for k1 in range(dwa_horizon_param): 
 
-            x -= t_interval * v * np.sin(h)
-            y += t_interval * v * np.cos(h)
+                x -= t_interval * v * np.sin(h)
+                y += t_interval * v * np.cos(h)
 
-            h += t_interval * a
+                h += t_interval * a
 
-        min_distance = np.inf
+            min_error = np.inf
 
-        # Calculating minimal distance to the path
-        for i, pose in enumerate(planned_path):  
+            # Calculating minimal distance to the path
+            for k2, pose in enumerate(planned_path):  
 
-            d = linear_distance(x, pose.pose.position.x, y, pose.pose.position.y)
+                d = linear_distance(x, pose.pose.position.x, y, pose.pose.position.y)
 
-            if d < min_distance: 
-                min_distance = d
+                if d < min_error: 
+                    min_error = d
 
-        # angular difference
-        rad_diff = np.abs(goal_heading - h) 
-        if rad_diff > np.pi: 
-            rad_diff = 2 * np.pi - rad_diff
+            # angular difference
+            # rad_diff = np.abs(goal_heading - h) 
+            # if rad_diff > np.pi: 
+            #     rad_diff = 2 * np.pi - rad_diff
 
-        remaining_distance = linear_distance(x, y, goal_x, goal_y)
+            remaining_distance = linear_distance(x, goal_x, y, goal_y)
 
-        cost_function = 1 * min_distance + 0.01 / np.pi * rad_diff + 10 * remaining_distance
+            cost_function = 1.0 * min_error + 1.0 * remaining_distance
 
-        if cost_function < optimal_cost_function: 
-            optimal_v = v
-            optimal_a = a
+            # cost_function = 1 * min_distance + 0.1 / np.pi * rad_diff + 1 * remaining_distance
+
+            if cost_function < optimal_cost_function: 
+                optimal_v = v
+                optimal_a = a
+                optimal_cost_function = cost_function
 
     cmd_vel_msg = Twist()
 
@@ -240,8 +235,8 @@ def control_with_gmm():
 
     pubCmd.publish(cmd_vel_msg)
 
-    # rospy.loginfo('v: ' + str(v))
-    # rospy.loginfo('a: ' + str(a))
+    rospy.loginfo('v: ' + str(optimal_v))
+    rospy.loginfo('a: ' + str(optimal_a))
 
 
 
@@ -319,7 +314,7 @@ def callback_goal(data):
     rospy.loginfo('heading of goal: ' + str(goal_heading))
 
 def control(): 
-    r = rospy.Rate(10)
+    # r = rospy.Rate(10)
 
     # while not rospy.is_shutdown(): 
     #     if gmm_mean is None or gmm_covariance is None or gmm_weight is None: 
@@ -339,7 +334,7 @@ def control():
             # else: 
             #     control_with_gmm() 
             control_with_gmm()
-        r.sleep()
+        # r.sleep()
 
 
 
