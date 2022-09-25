@@ -5,10 +5,10 @@
   <arg name="num_of_gmm_dist" default="3"/>
 
   <!-- corridor route 1-->
-  <!-- <arg name="orient_x" default="-28.5"/>
+  <arg name="orient_x" default="-28.5"/>
   <arg name="orient_y" default="-6.0"/>
   <arg name="goal_x" default="-31.5"/>
-  <arg name="goal_y" default="5.0"/> -->
+  <arg name="goal_y" default="5.0"/>7
 
   <!-- corridor route 2-->
   <!-- <arg name="orient_x" default="-45.0"/>
@@ -17,10 +17,10 @@
   <arg name="goal_y" default="0.0"/> -->
 
   <!-- campus route 1-->
-  <arg name="orient_x" default="37.0"/>
+  <!-- <arg name="orient_x" default="37.0"/>
   <arg name="orient_y" default="-97.0"/>
   <arg name="goal_x" default="55.0"/>
-  <arg name="goal_y" default="-87.0"/>
+  <arg name="goal_y" default="-87.0"/> -->
 
   <arg name="gmm" default="true"/>
   
