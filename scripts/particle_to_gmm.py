@@ -95,7 +95,7 @@ def callback(data):
 
     # total time taken
     end = time.time()
-    rospy.loginfo("Runtime of GMM publisher is %f" % (end - start))
+    # rospy.loginfo("Runtime of GMM publisher is %f" % (end - start))
 
 
 def toMultiArray(matrix):

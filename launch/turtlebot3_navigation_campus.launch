@@ -8,7 +8,7 @@
   <arg name="open_rviz" default="true"/>
   <arg name="move_forward_only" default="false"/>
 
-  <arg name="lidar_noise" default="true"/>
+  <arg name="lidar_noise" default="false"/>
 
   <!-- campus route 1-->
   <arg name="x" default="37.0"/>

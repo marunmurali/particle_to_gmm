@@ -47,9 +47,9 @@ def callback(data):
         new_ranges = list(new_scan.ranges)
 
         for i in range(len(new_ranges)): 
-            error = new_ranges[i] * 0.10 * np.random.randn()
+            error = new_ranges[i] * 0.20 * np.random.randn()
 
-            if np.abs(error) > 1.0:
+            if np.abs(error) > 0.5:
                 error = error / np.abs(error)
 
             new_ranges[i] = new_ranges[i] + error

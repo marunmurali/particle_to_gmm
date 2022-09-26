@@ -83,8 +83,8 @@ orient_ref = -np.arctan2(goal_x - orient_x, goal_y - orient_y)
 # Feedback gains of the state feedback controller
 # k1 = -1.0
 k2 = -0.50
-k3 = -0.1
-k4 = -0.1
+k3 = -0.10
+k4 = -0.10
 
 gmm_mean = None
 gmm_covariance = None
@@ -98,6 +98,8 @@ start_time = None
 
 mse_list = []
 mse_calculation = 0
+
+count_time = 80.0
 
 # Methods
 
@@ -251,8 +253,8 @@ def control_with_gmm(means, covariances, weights, amcl_pose, odom):
 
             linear_cmd += weight * (cmd3 + cmd4)
 
-            if linear_cmd < -0.15: 
-                linear_cmd = -0.15
+            if linear_cmd < -0.10: 
+                linear_cmd = -0.10
            
         # rospy.loginfo('controlling with gmm')
         
@@ -307,7 +309,7 @@ def control_with_gmm(means, covariances, weights, amcl_pose, odom):
 
     cmd_vel_msg = Twist()
 
-    cmd_vel_msg.linear.x = 0.25 + linear_cmd
+    cmd_vel_msg.linear.x = 0.26 + linear_cmd
     # cmd_vel_msg.linear.x = 0.20 + linear_cmd + 0.1 * (np.random.random(1) - 0.5)
         
     cmd_vel_msg.linear.y = 0.0    
@@ -331,12 +333,12 @@ def control_with_gmm(means, covariances, weights, amcl_pose, odom):
 
     # For calculation of MSE
 
-    global mse_list, mse_calculation, start_time
+    global mse_list, mse_calculation, start_time, count_time
 
     if mse_calculation == 0:
         time_elapsed = rospy.get_time() - start_time
-        # if time_elapsed >= 50.0: 
-        if stop_flag == 1: 
+        if time_elapsed >= count_time: 
+        # if stop_flag == 1: 
             mse_calculation = 1
 
             mse = np.mean(mse_list)
@@ -361,7 +363,7 @@ def control_with_no_info():
 
     cmd_vel_msg = Twist()
 
-    cmd_vel_msg.linear.x = 0.20
+    cmd_vel_msg.linear.x = 0.05
     
     pubCmd.publish(cmd_vel_msg)
 
@@ -416,7 +418,7 @@ def callback_odom(data):
     odom = data
 
 def control(): 
-    r = rospy.Rate(30)
+    r = rospy.Rate(10)
     while not rospy.is_shutdown(): 
         if gmm_mean is None or gmm_covariance is None or gmm_weight is None: 
             control_with_no_info()
@@ -446,5 +448,10 @@ if __name__ == '__main__':
     pub.start()
 
     start_time = rospy.get_time()
+
+    if gmm_flag == True: 
+        rospy.loginfo('running with GMM')
+    else: 
+        rospy.loginfo('running without GMM')
 
     rospy.spin()
