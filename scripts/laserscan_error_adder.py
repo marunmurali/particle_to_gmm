@@ -7,6 +7,7 @@
 # Includes
 
 # from numpy.core.fromnumeric import mean
+from turtle import distance
 import rospy
 import time
 import numpy as np
@@ -46,11 +47,23 @@ def callback(data):
     if add_noise and (not (data is None)): 
         new_ranges = list(new_scan.ranges)
 
-        for i in range(len(new_ranges)): 
-            error = new_ranges[i] * 0.20 * np.random.randn()
+        # change from random to Gaussian noise
 
-            if np.abs(error) > 0.5:
-                error = error / np.abs(error)
+        # 3% stddev when range <= 6.0m
+        # 5% stddev when range > 6.0m
+
+        # for i, distance in enumerate(new_scan.ranges):
+        
+        for i in range(len(new_ranges)): 
+
+            distance = new_ranges[i]
+
+            if distance < 0.3: 
+                error = np.random.normal(0, 0.01 * distance)
+            elif distance <= 6.0: 
+                error = np.random.normal(0, 0.03 * distance)
+            else: 
+                error = np.random.normal(0, 0.05 * distance)
 
             new_ranges[i] = new_ranges[i] + error
 

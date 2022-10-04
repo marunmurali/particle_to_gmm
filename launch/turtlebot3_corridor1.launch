@@ -9,6 +9,11 @@
   <arg name="y" default="-0.5"/>    
   <arg name="a" default="1.57"/>  -->
 
+  <arg name="roll" default="0.0"/>
+  <arg name="pitch" default="0.0"/>
+  <!-- <arg name="yaw" default="0.0"/> -->
+  <arg name="yaw" default="1.57"/>
+
   <env name="GAZEBO_MODEL_PATH" value="$(env HOME)/catkin_ws/src/turtlebot3_simulations/turtlebot3_gazebo/worlds/models:$(optenv GAZEBO_MODEL_PATH)" />
 
   <arg name="debug" default="false"/>
@@ -27,5 +32,5 @@
   </include>
   <param name="robot_description" command="$(find xacro)/xacro $(find turtlebot3_description)/urdf/turtlebot3_$(arg model).urdf.xacro" />
 
-  <node name="spawn_urdf" pkg="gazebo_ros" type="spawn_model" args="-urdf -model turtlebot3 -x $(arg x_pos) -y $(arg y_pos) -z $(arg z_pos) -param robot_description" />
+  <node name="spawn_urdf" pkg="gazebo_ros" type="spawn_model" args="-urdf -model turtlebot3 -x $(arg x_pos) -y $(arg y_pos) -z $(arg z_pos)  -R $(arg roll) -P $(arg pitch) -Y $(arg yaw) -param robot_description" />
 </launch>
