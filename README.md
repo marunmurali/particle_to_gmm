@@ -46,6 +46,13 @@ Available features are:
 ## Setup
 What are the project requirements/dependencies? Where are they listed? A requirements.txt or a Pipfile.lock file perhaps? Where is it located?
 
+### Requirements: 
+
+1. A PC with moderate hardware
+2. Ubuntu 20.04
+3. ROS Noetic Ninjemys
+4. Turtlebot3 tutorial downloaded
+
 Proceed to describe how to install / setup one's local environment / get started with the project.
 
 
