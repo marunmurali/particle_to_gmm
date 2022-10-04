@@ -10,14 +10,14 @@
   <arg name="lidar_noise" default="true"/>
 
   <!-- campus route 1-->
-  <!-- <arg name="x" default="37.0"/>
+  <arg name="x" default="37.0"/>
   <arg name="y" default="-97.0"/>    
-  <arg name="a" default="0.0"/>  -->
+  <arg name="a" default="0.0"/> 
 
   <!-- campus route 2-->
-  <arg name="x" default="8.0"/>
+  <!-- <arg name="x" default="8.0"/>
   <arg name="y" default="-45.5"/>    
-  <arg name="a" default="5.19"/> 
+  <arg name="a" default="5.19"/>  -->
 
   <param name="lidar_noise" value="$(arg lidar_noise)"/>
 
