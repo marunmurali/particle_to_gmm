@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 
+# A simple sender of the 'global localization' service.
+
+
 from std_srvs.srv import Empty
 
 import rospy

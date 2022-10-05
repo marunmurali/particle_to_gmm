@@ -34,10 +34,14 @@
 
 # A contoller used in the simulation environment of Turtlebot 3. 
 
-# import itertools
+
+# Imports
+
+# Basics
 import threading
+from turtle import position
 import rospy
-# import time
+import time
 import math
 import numpy as np
 # from numpy.core.fromnumeric import mean
@@ -45,7 +49,8 @@ import numpy as np
 from numpy import linalg
 from sklearn import mixture
 from functools import partial
-#from sklearn.mixture import BayesianGaussianMixture
+# import matplotlib as mpl
+# import matplotlib.pyplot as plt
 
 # ROS libraries
 from std_msgs.msg import String
@@ -56,16 +61,13 @@ from std_msgs.msg import (Float32MultiArray, Float64MultiArray,
                           UInt8MultiArray, UInt16MultiArray,
                           UInt32MultiArray, UInt64MultiArray)
 
-from geometry_msgs.msg import PoseArray
-from geometry_msgs.msg import Pose
-from geometry_msgs.msg import Point
-from geometry_msgs.msg import PoseWithCovarianceStamped
-from geometry_msgs.msg import Twist
+from geometry_msgs.msg import (PoseArray, Pose, Point, PoseWithCovarianceStamped, Twist)
 from nav_msgs.msg import Odometry
 
-# import matplotlib as mpl
-# import matplotlib.pyplot as plt
 
+# Global variables
+
+# ROS Parameters
 gmm_flag = rospy.get_param('gmm')
 
 orient_x = rospy.get_param('orient_x')
@@ -78,17 +80,61 @@ b = orient_y - k * orient_x
 
 orient_ref = -np.arctan2(goal_x - orient_x, goal_y - orient_y)
 
+# Feedback gains of the state feedback controller
 # k1 = -1.0
 k2 = -0.50
-k3 = -0.1
-k4 = -0.1
+k3 = -0.10
+k4 = -0.10
 
 gmm_mean = None
 gmm_covariance = None
 gmm_weight = None
 odom = Odometry()
+error_msg = Point()
 
-# Data conversion methods
+stop_flag = 0
+
+start_time = None
+
+mse_list = []
+mse_calculation = 0
+
+count_time = 80.0
+
+# Methods
+
+# Conversion between angles and quaternions
+def quaternion_to_rad(z, w): 
+    if w == 0:   
+        rad = np.pi
+    else: 
+        rad = 2 * np.arctan(z / w) - np.pi / 2
+
+    if rad < -np.pi: 
+        rad = rad + 2.0 * np.pi
+
+    return rad
+
+
+def rad_to_quaternion(rad): 
+
+    rad += np.pi / 2
+
+    rad /= 2
+
+    quaternion = [0, 0, 0, 0]
+
+    quaternion[0] = 0
+    quaternion[1] = 0
+
+    quaternion[2] = np.sin(rad)
+
+    quaternion[3] = np.cos(rad)
+        
+    return quaternion
+
+
+# Data type conversion
 def _numpy_to_multiarray(multiarray_type, np_array):
     multiarray = multiarray_type()
     multiarray.layout.dim = [MultiArrayDimension('dim%d' % i,
@@ -107,13 +153,15 @@ def _multiarray_to_numpy(pytype, dtype, multiarray):
     # print(dtype)
     return np.array(multiarray.data, dtype=pytype).reshape(dims).astype(dtype)
 
+
 to_multiarray_f64 = partial(_numpy_to_multiarray, Float64MultiArray)
+
 
 to_numpy_f64 = partial(_multiarray_to_numpy, float, np.float64)
 
-# Pose calculation methods
-def get_err_position(x, y):
 
+# Pose error calculation
+def get_err_position(x, y):
     d = (y - k * x - b) / math.sqrt(1 + math.pow(k, 2))
     
     # rospy.loginfo('linear_error = ' + str(d))
@@ -121,7 +169,6 @@ def get_err_position(x, y):
     return d
 
 def get_err_orient(theta):
-    
     # theta = 2 * np.arctan(z / w) - np.pi / 2
     
     err = theta - orient_ref
@@ -135,56 +182,29 @@ def get_err_orient(theta):
 
     return err
 
-
 # Controller method
 def control_with_gmm(means, covariances, weights, amcl_pose, odom): 
 
     pubCmd = rospy.Publisher('cmd_vel', Twist, queue_size=10)
     pubError = rospy.Publisher('error', Point, queue_size=10)
-    error_msg = Point()
+
+    global error_msg
 
     linear_cmd = 0.0
     angular_cmd = 0.0
 
-    dist_goal = 0.0
-
-    # orient_z = odom.pose.pose.orientation.z
-    # orient_w = odom.pose.pose.orientation.w
-
     orient_z = amcl_pose.pose.pose.orientation.z
     orient_w = amcl_pose.pose.pose.orientation.w
 
-    if orient_w == 0:   
-        theta = np.pi
-    else: 
-        theta = 2 * np.arctan(orient_z / orient_w) - np.pi / 2
-
-    if theta < -np.pi: 
-        theta = theta + 2.0 * np.pi
+    theta = quaternion_to_rad(orient_z, orient_w)
 
     orientation_err = get_err_orient(theta)
 
-    xForError = amcl_pose.pose.pose.position.x
-    yForError = amcl_pose.pose.pose.position.y
-
-    error_msg.x = get_err_position(xForError, yForError)
-    error_msg.y = orientation_err
-
-    # rospy.loginfo('linear error: ' + str(error_msg.x))
-    # rospy.loginfo('angular error: ' + str(error_msg.y))
-
-    # error_msg.z = 0
-
-    # GMM path following
     if gmm_flag: 
-
-        # for i, (m, covar) in enumerate(zip(means, covariances)):
+        # Path following using GMM
         for i, (m, covar, weight) in enumerate(zip(means, covariances, weights)):
             
-            # print('i = ', i)
-            # print('m = ', m)
-            # print('covar = ', covar)
-            # print('weight = ', weight)
+            # rospy.loginfo(str(i) + str(weight))
             
             eig_val, eig_vec = linalg.eigh(covar)
 
@@ -197,8 +217,6 @@ def control_with_gmm(means, covariances, weights, amcl_pose, odom):
             if angle > 2 * np.pi: 
                 angle = angle - 2 * np.pi
 
-            # angle = 180.0 * angle / np.pi  # convert to degrees
-
             x = m[0]
             y = m[1]
 
@@ -207,10 +225,10 @@ def control_with_gmm(means, covariances, weights, amcl_pose, odom):
 
             x_err = get_err_position(x, y)
 
-            # On the direction of path
+            # Longitudinal direction
             l1 = np.abs(b / 2 * np.cos(angle - orient_ref)) + np.abs(a / 2 * np.sin(angle - orient_ref))
 
-            # On the perpendicular direction
+            # Lateral direction
             l2 = np.abs(b / 2 * np.sin(angle - orient_ref)) + np.abs(a / 2 * np.cos(angle - orient_ref))
 
             if ((-np.sin(theta) * (-np.sin(orient_ref)) + np.cos(theta) * np.cos(orient_ref)) 
@@ -223,21 +241,26 @@ def control_with_gmm(means, covariances, weights, amcl_pose, odom):
             
             cmd3 = k3 * l1
 
-            if np.abs(cmd3) > 0.05: 
-                cmd3 = cmd3 * 0.05 / np.abs(cmd3)
+            if np.abs(cmd3) > 0.25: 
+                cmd3 = cmd3 * 0.25 / np.abs(cmd3)
 
             cmd4 = k4 * l2
 
-            if np.abs(cmd4) > 0.05: 
-                cmd4 = cmd4 * 0.05 / np.abs(cmd4)
+            if np.abs(cmd4) > 0.25: 
+                cmd4 = cmd4 * 0.25 / np.abs(cmd4)
 
             angular_cmd += weight * (k1 * x_err + k2 * orientation_err) 
 
             linear_cmd += weight * (cmd3 + cmd4)
-            
-            rospy.loginfo('controlling with gmm')
+
+            if linear_cmd < -0.10: 
+                linear_cmd = -0.10
+           
+        # rospy.loginfo('controlling with gmm')
         
     else: 
+        # Path following without GMM
+
         x = amcl_pose.pose.pose.position.x
         y = amcl_pose.pose.pose.position.y
         x_err = get_err_position(x, y)
@@ -250,90 +273,154 @@ def control_with_gmm(means, covariances, weights, amcl_pose, odom):
 
         k1 = k1 * np.abs(np.cos(orientation_err))
 
-        angular_cmd = k1 * x_err + k2 * orientation_err + 0.2 * (np.random.random(1) - 0.5)
+        angular_cmd = k1 * x_err + k2 * orientation_err
+        # angular_cmd = k1 * x_err + k2 * orientation_err + 0.2 * (np.random.random(1) - 0.5)
 
-        linear_cmd = 0.0
+        linear_cmd = -0.05
 
-        rospy.loginfo('controlling w/o gmm')
+        # rospy.loginfo('controlling w/o gmm')
 
-    dist_goal = np.sqrt(np.power(goal_x - x, 2) + np.power(goal_y - y, 2))
+    xForError = amcl_pose.pose.pose.position.x
+    yForError = amcl_pose.pose.pose.position.y
+
+    position_error = get_err_position(xForError, yForError)
+
+    zForError = amcl_pose.pose.pose.orientation.z
+    wForError = amcl_pose.pose.pose.orientation.w   
+
+    theta_error = quaternion_to_rad(zForError, wForError)
+
+    orientation_error = get_err_orient(theta_error)
+
+    error_msg.x = position_error
+    error_msg.y = orientation_error
+
+    # rospy.loginfo('linear error: ' + str(error_msg.x))
+    # rospy.loginfo('angular error: ' + str(error_msg.y))
+
+    dist_goal = np.sqrt(np.power(x - goal_x, 2) + np.power(y - goal_y, 2))
 
     # rospy.loginfo('linear command: ' + str(linear_cmd))
     # rospy.loginfo('angular command: ' + str(angular_cmd))
 
     # rospy.loginfo('x coordinate: ' + str(x) + '; y coordinate: ' + str(y))
 
+    # Controlling of the robot
+
     cmd_vel_msg = Twist()
 
-    cmd_vel_msg.linear.x = 0.20 + linear_cmd + 0.1 * (np.random.random(1) - 0.5)
+    cmd_vel_msg.linear.x = 0.26 + linear_cmd
+    # cmd_vel_msg.linear.x = 0.20 + linear_cmd + 0.1 * (np.random.random(1) - 0.5)
         
     cmd_vel_msg.linear.y = 0.0    
     cmd_vel_msg.linear.z = 0.0
 
     cmd_vel_msg.angular.x = 0.0
     cmd_vel_msg.angular.y = 0.0
-    cmd_vel_msg.angular.z = angular_cmd + 0.2 * (np.random.random(1) - 0.5)
+    cmd_vel_msg.angular.z = angular_cmd
 
-    if dist_goal <= 0.2: 
+    global stop_flag
+
+    if dist_goal < 0.2: 
+        stop_flag = 1
+
+    if stop_flag == 1: 
         cmd_vel_msg.linear.x = 0.0
         cmd_vel_msg.angular.z = 0.0
     
     pubCmd.publish(cmd_vel_msg)
     pubError.publish(error_msg)
-    # pubCovar.publish(gmm_covar)
+
+    # For calculation of MSE
+
+    global mse_list, mse_calculation, start_time, count_time
+
+    if mse_calculation == 0:
+        time_elapsed = rospy.get_time() - start_time
+        if time_elapsed >= count_time: 
+        # if stop_flag == 1: 
+            mse_calculation = 1
+
+            mse = np.mean(mse_list)
+
+            rospy.loginfo('MSE = ' + str(mse))
+        mse_list.append(np.power(position_error, 2))
 
     
 def control_with_no_info(): 
 
     pubCmd = rospy.Publisher('cmd_vel', Twist, queue_size=10) 
 
+    pubError = rospy.Publisher('error', Point, queue_size=10)
+
+    global error_msg, odom
+
+    xForError = odom.pose.pose.position.x
+    yForError = odom.pose.pose.position.y
+
+    error_msg.x = get_err_position(xForError, yForError)
+    error_msg.y = 0.0
+
     cmd_vel_msg = Twist()
 
-    cmd_vel_msg.linear.x = 0.20
-        
-    cmd_vel_msg.linear.y = 0.0    
-    cmd_vel_msg.linear.z = 0.0
-
-    cmd_vel_msg.angular.x = 0.0
-    cmd_vel_msg.angular.y = 0.0
-    cmd_vel_msg.angular.z = 0.5
+    cmd_vel_msg.linear.x = 0.05
     
     pubCmd.publish(cmd_vel_msg)
 
+    pubError.publish(error_msg)
+
+
+# Callback methods
 
 def callback_gmm_mean(data):
     global gmm_mean
-    rospy.loginfo('received gmm mean')
+    # rospy.loginfo('received gmm mean')
     gmm_mean = to_numpy_f64(data)
 
 def callback_gmm_covar(data):
     global gmm_covariance
-    rospy.loginfo('received gmm covariance')
+    # rospy.loginfo('received gmm covariance')
     gmm_covariance = to_numpy_f64(data)
 
 def callback_gmm_weight(data): 
     global gmm_weight
-    rospy.loginfo('received gmm weight')
+    # rospy.loginfo('received gmm weight')
     gmm_weight = to_numpy_f64(data)
 
 def callback_amcl_pose(data):
-    repub_amcl_pose = rospy.Publisher('amcl_pose', PoseWithCovarianceStamped, queue_size=10)
+    # repub_amcl_pose = rospy.Publisher('new_amcl_pose', PoseWithCovarianceStamped, queue_size=10)
     global amcl_pose
-    rospy.loginfo('received amcl_pose')
+    # rospy.loginfo('received amcl_pose')
     amcl_pose = data; 
 
-    amcl_pose.pose.pose.position.x += 0.03 * np.random.randn()
-    amcl_pose.pose.pose.position.y += 0.03 * np.random.randn()
+    # new_amcl_pose = amcl_pose
 
-    repub_amcl_pose.publish(amcl_pose)
+    # r = 0.1 * np.random.randn()
 
-    # Let's add random error with AMCL pose and republish it so we can see it in RViz. 
-    # However this doesn't seem to work well...
+    # direction = 2 * np.pi * np.random.random(1)
+
+    # new_amcl_pose.pose.pose.position.x += r * np.cos(direction)
+    # new_amcl_pose.pose.pose.position.y += r * np.sin(direction)
+
+    # orient = quaternion_to_rad(new_amcl_pose.pose.pose.orientation.z, new_amcl_pose.pose.pose.orientation.w)
+
+    # orient += np.pi / 18 * np.random.randn()
+
+    # new_amcl_pose.pose.pose.orientation.z = rad_to_quaternion(orient)[2]
+
+    # new_amcl_pose.pose.pose.orientation.w = rad_to_quaternion(orient)[3]
+
+    # repub_amcl_pose.publish(new_amcl_pose)
+
+
+def callback_odom(data): 
+    global odom
+    odom = data
 
 def control(): 
-    r = rospy.Rate(20)
+    r = rospy.Rate(10)
     while not rospy.is_shutdown(): 
-        if gmm_covariance is None or odom is None: 
+        if gmm_mean is None or gmm_covariance is None or gmm_weight is None: 
             control_with_no_info()
         else: 
             control_with_gmm(gmm_mean, gmm_covariance, gmm_weight, amcl_pose, odom)
@@ -344,6 +431,7 @@ def control():
 
 if __name__ == '__main__':
 
+    # Was trying to run controlling at a certain rate
     # rospy.init_node('state_feedback', anonymous=True)
     # rate = rospy.Rate(5) # ROS Rate at 5Hz
 
@@ -352,11 +440,18 @@ if __name__ == '__main__':
     sub_mean = rospy.Subscriber('gmm_mean', Float64MultiArray, callback_gmm_mean)
     sub_cov = rospy.Subscriber('gmm_covar', Float64MultiArray, callback_gmm_covar)
     sub_weight = rospy.Subscriber('gmm_weight', Float64MultiArray, callback_gmm_weight)
-    # sub_odom = rospy.Subscriber('odom', Odometry, callback_odom)
 
-    sub_odom = rospy.Subscriber('amcl_pose', PoseWithCovarianceStamped, callback_amcl_pose)
+    sub_amcl_pose = rospy.Subscriber('amcl_pose', PoseWithCovarianceStamped, callback_amcl_pose)
+    sub_odom = rospy.Subscriber('odom', Odometry, callback_odom)
 
     pub = threading.Thread(target=control)
     pub.start()
+
+    start_time = rospy.get_time()
+
+    if gmm_flag == True: 
+        rospy.loginfo('running with GMM')
+    else: 
+        rospy.loginfo('running without GMM')
 
     rospy.spin()

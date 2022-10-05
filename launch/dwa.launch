@@ -1,0 +1,50 @@
+<launch>
+  <!-- launch file for Dynamic Window Approach -->
+  <!-- Arguments -->
+
+  <arg name="num_of_gmm_dist" default="3"/>
+
+  <!-- corridor route 1-->
+  <arg name="orient_x" default="-28.5"/>
+  <arg name="orient_y" default="-6.0"/>
+  <arg name="goal_x" default="-31.5"/>
+  <arg name="goal_y" default="5.0"/>7
+
+  <!-- corridor route 2-->
+  <!-- <arg name="orient_x" default="-45.0"/>
+  <arg name="orient_y" default="-1.5"/>
+  <arg name="goal_x" default="-15.0"/>
+  <arg name="goal_y" default="0.0"/> -->
+
+  <!-- campus route 1-->
+  <!-- <arg name="orient_x" default="37.0"/>
+  <arg name="orient_y" default="-97.0"/>
+  <arg name="goal_x" default="55.0"/>
+  <arg name="goal_y" default="-87.0"/> -->
+
+  <!-- <arg name="gmm" default="true"/> -->
+  
+  <!-- <param name="using_gmm_param" value="$(arg using_gmm)"/> -->
+  <param name="orient_x" value="$(arg orient_x)"/>
+  <param name="orient_y" value="$(arg orient_y)"/>
+  <param name="goal_x" value="$(arg goal_x)"/>
+  <param name="goal_y" value="$(arg goal_y)"/>
+  <param name="num_of_gmm_dist" value="$(arg num_of_gmm_dist)"/>
+
+  <!-- <param name="gmm" value="$(arg gmm)"/> -->
+
+  <node name="error_plot"
+        pkg="rqt_plot"
+        type="rqt_plot"
+        args="/error/x" />
+
+  <!-- <node pkg="particle_to_gmm" type="gmm_visualizer.py" name="gmm_visualizer" output="screen">
+  </node> -->
+
+  <node pkg="particle_to_gmm" type="particle_to_gmm.py" name="particle_to_gmm" output="screen">
+  </node>
+
+  <node pkg="particle_to_gmm" type="dwa_with_gmm.py" name="dwa_with_gmm" output="screen">
+  </node> 
+
+</launch>

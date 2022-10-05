@@ -61,22 +61,10 @@
       </attenuation>
       <direction>-0.5 0.1 -0.9</direction>
     </light>
-    <model name='my_mesh'>
-      <pose frame=''>0 0 0 0 -0 0</pose>
-      <static>1</static>
-      <link name='body'>
-        <visual name='visual'>
-          <geometry>
-            <mesh>
-              <uri>model://map</uri>
-            </mesh>
-          </geometry>
-        </visual>
-        <self_collide>0</self_collide>
-        <enable_wind>0</enable_wind>
-        <kinematic>0</kinematic>
-      </link>
-    </model>
+    <!-- Load world -->
+    <include>
+      <uri>model://map</uri>
+    </include>
     <gravity>0 0 -9.8</gravity>
     <magnetic_field>6e-06 2.3e-05 -4.2e-05</magnetic_field>
     <atmosphere type='adiabatic'/>
@@ -130,6 +118,40 @@
         <pose frame=''>0 0 10 0 -0 0</pose>
       </light>
     </state>
+
+    <!-- Testing the automatic population of objects -->
+    <!-- <population name="person1_population1">
+      <model name="person1">
+        <include>
+          <uri>model://person_walking</uri>
+        </include>
+      </model>
+      <pose>-29.5 -0.5 0 0 0 0</pose>
+      <box>
+        <size>4 18 2</size>
+      </box>
+      <model_count>20</model_count>
+      <distribution>
+        <type>random</type>
+      </distribution>
+    </population> -->
+
+    <population name="person1_population1">
+      <model name="person1">
+        <include>
+          <uri>model://person_walking</uri>
+        </include>
+      </model>
+      <pose>-29.5 -0.5 0 0 0 0</pose>
+      <box>
+        <size>3 15 2.0</size>
+      </box>
+      <model_count>16</model_count>
+      <distribution>
+        <type>uniform</type>
+      </distribution>
+    </population>
+
     <gui fullscreen='0'>
       <camera name='user_camera'>
         <pose frame=''>-0.20974 0.581732 71.4059 -0 1.5698 1.59219</pose>
@@ -137,5 +159,6 @@
         <projection_type>perspective</projection_type>
       </camera>
     </gui>
+
   </world>
 </sdf>

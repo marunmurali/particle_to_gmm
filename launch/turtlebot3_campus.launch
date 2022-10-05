@@ -1,8 +1,17 @@
 <launch>
   <arg name="model" default="$(env TURTLEBOT3_MODEL)" doc="model type [burger, waffle, waffle_pi]"/>
-  <arg name="x_pos" default="7.91"/>
-  <arg name="y_pos" default="-44.55"/>
+
+  <arg name="x_pos" default="37.0"/>
+  <arg name="y_pos" default="-97.0"/>
+  <!-- <arg name="x_pos" default="8.0"/>
+  <arg name="y_pos" default="-45.5"/> -->
   <arg name="z_pos" default="0.0"/>
+
+  <arg name="roll" default="0.0"/>
+  <arg name="pitch" default="0.0"/>
+  <arg name="yaw" default="0.0"/>
+  <!-- <arg name="yaw" default="5.19"/> -->
+
 
   <!-- <env name="GAZEBO_MODEL_PATH" value="$(env HOME)/catkin_ws/src/turtlebot3_simulations/turtlebot3_gazebo/worlds/models:$(optenv GAZEBO_MODEL_PATH)" /> -->
 
@@ -20,7 +29,8 @@
     <arg name="world_name" value="$(find turtlebot3_gazebo)/worlds/campus2.world"/>
   </include>
   
-  <param name="robot_description" command="$(find xacro)/xacro $(find turtlebot3_description)/urdf/turtlebot3_$(arg model).urdf.xacro" />
+  <!-- <param name="robot_description" command="$(find xacro)/xacro $(find turtlebot3_description)/urdf/turtlebot3_$(arg model).urdf.xacro" /> -->
+  <param name="robot_description" command="$(find xacro)/xacro $(find particle_to_gmm)/support/description/turtlebot3_$(arg model).urdf.xacro" />
 
-  <node name="spawn_urdf" pkg="gazebo_ros" type="spawn_model" args="-urdf -model turtlebot3 -x $(arg x_pos) -y $(arg y_pos) -z $(arg z_pos) -param robot_description" />
+  <node name="spawn_urdf" pkg="gazebo_ros" type="spawn_model" args="-urdf -model turtlebot3 -x $(arg x_pos) -y $(arg y_pos) -z $(arg z_pos) -R $(arg roll) -P $(arg pitch) -Y $(arg yaw) -param robot_description" />
 </launch>
