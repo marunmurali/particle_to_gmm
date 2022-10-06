@@ -1,15 +1,18 @@
 <launch>
   <arg name="model" default="$(env TURTLEBOT3_MODEL)" doc="model type [burger, waffle, waffle_pi]"/>
 
+  <!-- Route 1 -->
   <arg name="x_pos" default="37.0"/>
   <arg name="y_pos" default="-97.0"/>
+  
+  <!-- Route 2 -->
   <!-- <arg name="x_pos" default="8.0"/>
   <arg name="y_pos" default="-45.5"/> -->
   <arg name="z_pos" default="0.0"/>
 
   <arg name="roll" default="0.0"/>
   <arg name="pitch" default="0.0"/>
-  <arg name="yaw" default="0.0"/>
+  <arg name="yaw" default="0.507"/>
   <!-- <arg name="yaw" default="5.19"/> -->
 
 

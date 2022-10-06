@@ -59,11 +59,14 @@ def callback(data):
             distance = new_ranges[i]
 
             if distance < 0.3: 
-                error = np.random.normal(0, 0.01 * distance)
+                error = np.random.normal(0, 0.01)
             elif distance <= 6.0: 
                 error = np.random.normal(0, 0.03 * distance)
             else: 
                 error = np.random.normal(0, 0.05 * distance)
+
+            # Test
+            # error = np.random.normal(0, 1)
 
             new_ranges[i] = new_ranges[i] + error
 

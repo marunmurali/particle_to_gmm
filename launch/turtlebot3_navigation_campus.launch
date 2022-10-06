@@ -12,7 +12,7 @@
   <!-- campus route 1-->
   <arg name="x" default="37.0"/>
   <arg name="y" default="-97.0"/>    
-  <arg name="a" default="0.0"/> 
+  <arg name="a" default="0.507"/> 
 
   <!-- campus route 2-->
   <!-- <arg name="x" default="8.0"/>
