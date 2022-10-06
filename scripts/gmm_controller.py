@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 # coding: utf-8
-# Software License Agreement (BSD License)
-#
+
+# Original License Agreement: 
+
 # Copyright (c) 2008, Willow Garage, Inc.
 # All rights reserved.
 #
@@ -31,7 +32,6 @@
 # LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
 # ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
-
 # A contoller used in the simulation environment of Turtlebot 3. 
 
 import itertools
