@@ -1,8 +1,5 @@
 #!/usr/bin/env python3
-# Software License Agreement (BSD License)
-#
-# Copyright (c) 2021~2022, Arun Muraleedharan, Li Hanjie.
-# All rights reserved.
+# coding: utf-8
 
 # Includes
 
