@@ -1,24 +1,17 @@
 #!/usr/bin/env python3
 # coding: utf-8
 # 
-# Software License Agreement (BSD License)
-#
-# Copyright (c) 2021, Arun Muraleedharan, Li Hanjie. 
-# All rights reserved. 
-# 
 # A DWA contoller used in simulation for Turtlebot 3. 
 
 # Imports
 
-# Basics
-
-from importlib.resources import path
+# - Basics
+# What is this? 
+# from importlib.resources import path
 import random
 import threading
-
 # What is this? 
 # from requests import head
-
 import rospy
 import time
 import math
