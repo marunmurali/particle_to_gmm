@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # coding: utf-8
-# Software License Agreement (BSD License)
+
+# Original License Agreement: 
 #
 # Copyright (c) 2008, Willow Garage, Inc.
 # All rights reserved.
@@ -37,7 +38,7 @@
 
 # Imports
 
-# Basics
+# - Basics
 import threading
 from turtle import position
 import rospy

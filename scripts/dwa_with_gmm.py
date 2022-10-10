@@ -3,19 +3,18 @@
 
 # Definition: A DWA controller used in the simulation experiment. 
 # 
-# Date of programming: 2022/7/7 ~ 20xx/xx/xx
-#
-# Current status: working without problems / working with problems / <sometimes working> / not working / not finished
+# A contoller used in the simulation environment of Turtlebot 3. 
 
 # Imports
 
-# Basics
+# - Basics
 
-# from importlib.resources import path
+# What is this? 
+# # from importlib.resources import path
 import random
 import threading
-
-from requests import head
+# What is this? 
+# from requests import head
 import rospy
 import time
 import math
