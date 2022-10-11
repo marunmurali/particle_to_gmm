@@ -9,7 +9,7 @@
 # A (working fine with a solid theoretical base) / B (seems to be working fine) / C (working with problems or sometimes working)
 # F (totally not working) / N (not completed)
 
-# Imports
+# Libraries
 
 # - Basics
 
@@ -28,7 +28,7 @@ from sklearn import mixture
 from functools import partial
 import matplotlib as mpl
 
-# ROS libraries
+# - ROS libraries
 from std_msgs.msg import String
 from std_msgs.msg import MultiArrayDimension
 from std_msgs.msg import (Float32MultiArray, Float64MultiArray,
@@ -45,7 +45,7 @@ from nav_msgs.msg import (Odometry, Path)
 
 # ROS parameters
 # gmm_flag = rospy.get_param('gmm')
-dwa_random_param = 300
+# dwa_random_param = 300
 
 dwa_horizon_param = 10
 
