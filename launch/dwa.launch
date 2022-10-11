@@ -8,8 +8,8 @@
   <arg name="orient_x" default="-28.5"/>
   <arg name="orient_y" default="-6.0"/>
   <arg name="goal_x" default="-31.5"/>
-  <arg name="goal_y" default="5.0"/>7
-
+  <arg name="goal_y" default="5.0"/>
+  
   <!-- corridor route 2-->
   <!-- <arg name="orient_x" default="-45.0"/>
   <arg name="orient_y" default="-1.5"/>
@@ -21,6 +21,12 @@
   <arg name="orient_y" default="-97.0"/>
   <arg name="goal_x" default="55.0"/>
   <arg name="goal_y" default="-87.0"/> -->
+
+  <!-- campus route 2-->
+  <!-- <arg name="orient_x" default="8.0"/>
+  <arg name="orient_y" default="-45.5"/>
+  <arg name="goal_x" default="29.5"/>
+  <arg name="goal_y" default="-87"/> -->
 
   <!-- <arg name="gmm" default="true"/> -->
   

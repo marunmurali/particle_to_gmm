@@ -2,8 +2,12 @@
 # coding: utf-8
 
 # Definition: A DWA controller used in the simulation experiment. 
-# 
-# A contoller used in the simulation environment of Turtlebot 3. 
+#
+# Date of programming: 2022/7/7 ~ 20xx/xx/xx
+#
+# Current progress: C
+# A (working fine with a solid theoretical base) / B (seems to be working fine) / C (working with problems or sometimes working)
+# F (totally not working) / N (not completed)
 
 # Imports
 

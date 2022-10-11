@@ -1,6 +1,14 @@
 #!/usr/bin/env python3
 # coding: utf-8
 
+# Definition: A state-feedback-based contoller used in the simulation environment of Turtlebot 3. 
+#
+# Date of programming: 2022/2 ~ 2022/6 (mainly)
+#
+# Current progress: B
+# A (working fine with a solid theoretical base) / B (seems to be working fine) / C (working with problems or sometimes working)
+# F (totally not working) / N (not completed)
+
 # Original License Agreement: 
 #
 # Copyright (c) 2008, Willow Garage, Inc.
@@ -32,8 +40,6 @@
 # LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
 # ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
-
-# A contoller used in the simulation environment of Turtlebot 3. 
 
 
 # Imports
