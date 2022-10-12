@@ -13,12 +13,8 @@
 
 # - Basics
 
-# What is this? 
-# # from importlib.resources import path
 import random
 import threading
-# What is this? 
-# from requests import head
 import rospy
 import time
 import math
