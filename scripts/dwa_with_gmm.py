@@ -302,7 +302,8 @@ def control_with_gmm():
                     remaining_distance = linear_distance(x, goal_x, y, goal_y)
 
                     # Edition 2
-                    cost_function = 1.0 * min_error * min_error - 1.0 * (remaining_distance - current_distance) * (remaining_distance - current_distance)
+                    # cost_function = 1.0 * pow(min_error, 2) - 1.0 * pow(remaining_distance - current_distance, 2)
+                    cost_function = 1.0 * pow(min_error, 2) + 1.0 * (remaining_distance - current_distance) * np.abs(remaining_distance - current_distance)
 
                     # Edition 1
                     # cost_function = 1.0 * min_error + 1.0 * remaining_distance
