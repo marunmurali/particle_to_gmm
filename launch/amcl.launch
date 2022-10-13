@@ -8,10 +8,11 @@
   <!-- AMCL -->
   <node pkg="amcl" type="amcl" name="amcl">
 
-    <param name="min_particles"             value="3000"/>
+    <!-- Is 500 enough for GMM?  -->
+    <param name="min_particles"             value="500"/>
     <param name="max_particles"             value="3000"/>
     <param name="kld_err"                   value="0.02"/>
-    <!-- Modified to make AMCL work more frequently -->
+    <!-- Modified to make AMCL work more frequently for better result -->
     <param name="update_min_d"              value="0.01"/>
     <param name="update_min_a"              value="0.01"/>
     <param name="resample_interval"         value="1"/>
@@ -24,6 +25,7 @@
     <param name="gui_publish_rate"          value="50.0"/>
 
     <remap from="scan"                      to="$(arg scan_topic)"/>
+    <!-- Modified to match the new LiDAR range -->
     <param name="laser_max_range"           value="8.0"/>
     <param name="laser_max_beams"           value="180"/>
     <param name="laser_z_hit"               value="0.5"/>

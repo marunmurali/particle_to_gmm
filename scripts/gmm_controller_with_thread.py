@@ -106,6 +106,10 @@ start_time = None
 mse_list = []
 mse_calculation = 0
 
+# For corridor (later to be changed to parameter)
+# count_time = 50.0
+
+# For campus
 count_time = 80.0
 
 # Methods
@@ -260,8 +264,8 @@ def control_with_gmm(means, covariances, weights, amcl_pose, odom):
 
             linear_cmd += weight * (cmd3 + cmd4)
 
-            if linear_cmd < -0.10: 
-                linear_cmd = -0.10
+        if linear_cmd < -0.10: 
+            linear_cmd = -0.10
            
         # rospy.loginfo('controlling with gmm')
         
@@ -316,7 +320,7 @@ def control_with_gmm(means, covariances, weights, amcl_pose, odom):
 
     cmd_vel_msg = Twist()
 
-    cmd_vel_msg.linear.x = 0.26 + linear_cmd
+    cmd_vel_msg.linear.x = 0.25 + linear_cmd
     # cmd_vel_msg.linear.x = 0.20 + linear_cmd + 0.1 * (np.random.random(1) - 0.5)
         
     cmd_vel_msg.linear.y = 0.0    
@@ -328,7 +332,7 @@ def control_with_gmm(means, covariances, weights, amcl_pose, odom):
 
     global stop_flag
 
-    if dist_goal < 0.2: 
+    if dist_goal < 0.1: 
         stop_flag = 1
 
     if stop_flag == 1: 

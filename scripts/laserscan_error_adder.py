@@ -46,8 +46,9 @@ def callback(data):
 
         # change from random to Gaussian noise
 
-        # 3% stddev when range <= 6.0m
-        # 5% stddev when range > 6.0m
+        # 3.33mm stddev when range < 0.3m
+        # 1.00% stddev when 0.3m <= range < 6.0m
+        # 1.67% stddev when range >= 6.0m
 
         # for i, distance in enumerate(new_scan.ranges):
         

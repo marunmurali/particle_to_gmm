@@ -255,10 +255,15 @@ def control_with_gmm():
             x = m[0]
             y = m[1]
 
-            b = v[0]
-            a = v[1]
+            b_ellipse = v[0]
+            a_ellipse = v[1]
+
+            current_x = x
+            current_y = y 
         
             optimal_cost_function = np.inf
+
+            current_distance = linear_distance(current_x, goal_x, current_y, goal_y)
 
             for i in range(len(v_range)): 
 
@@ -269,8 +274,8 @@ def control_with_gmm():
                     a = a_range[j]
 
                     h = original_heading
-                    x = original_x
-                    y = original_y
+                    x = current_x
+                    y = current_y
 
                     for k1 in range(dwa_horizon_param): 
 
@@ -296,7 +301,11 @@ def control_with_gmm():
 
                     remaining_distance = linear_distance(x, goal_x, y, goal_y)
 
-                    cost_function = 1.0 * min_error + 1.0 * remaining_distance
+                    # Edition 2
+                    cost_function = 1.0 * min_error * min_error - 1.0 * (remaining_distance - current_distance) * (remaining_distance - current_distance)
+
+                    # Edition 1
+                    # cost_function = 1.0 * min_error + 1.0 * remaining_distance
 
                     # cost_function = 1 * min_distance + 0.1 / np.pi * rad_diff + 1 * remaining_distance
 
@@ -356,7 +365,7 @@ def control_with_no_gmm():
 
     cmd_vel_msg = Twist()
 
-    cmd_vel_msg.linear.x = 0.05
+    cmd_vel_msg.linear.x = 0.01
     
     pubCmd.publish(cmd_vel_msg)
 
