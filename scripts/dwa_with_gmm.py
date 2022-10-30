@@ -6,7 +6,7 @@
 # Date of programming: 2022/7/7 ~ 20xx/xx/xx
 #
 # Current progress: C
-# A (working fine with a solid theoretical base) / B (seems to be working fine) / C (working with problems or sometimes working)
+# A (working with a solid theoretical base) / B (seems to be working) / C (working with problems)
 # F (totally not working) / N (not completed)
 
 # Libraries
@@ -194,7 +194,14 @@ def control_with_gmm():
     optimal_v = 0.0 
     optimal_a = 0.0
 
-    v_range = np.array([-0.15, -0.11, -0.07, -0.03, 0.01, 0.05, 0.09, 0.13, 0.17, 0.21, 0.25])
+    original_v = odom.twist.twist.linear.x
+
+    # We should change the sample space according to the robot's current velocity and acceleration limit
+
+    # But currently it can't be found
+    # Estimation can be made like a max acceleration of 1.0 m/s2
+
+    v_range = np.array([-0.1, -0.08, -0.06, -0.04, -0.02, 0, 0.02, 0.04, 0.06, 0.08, 0.1]) + original_v
     # v_range = np.array([0.05, 0.07, 0.09, 0.11, 0.13, 0.15, 0.17, 0.19, 0.21, 0.23, 0.25])
 
     a_range = np.array([-0.5, -0.4, -0.3, -0.2, -0.1, 0.0, 0.1, 0.2, 0.3, 0.4, 0.5])
