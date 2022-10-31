@@ -395,18 +395,6 @@ def control_with_no_gmm():
     pubCmd.publish(cmd_vel_msg)
 
 
-
-# def print_path(): 
-#     global planned_path
-
-#     rospy.loginfo(str(len(planned_path)))
-
-#     for i, pose in enumerate(planned_path): 
-#         rospy.loginfo('Point ' + str(i + 1))
-#         rospy.loginfo('x = ' + str(pose.pose.position.x))
-#         rospy.loginfo('y = ' + str(pose.pose.position.y))
-
-
 # Callback methods
 
 def callback_gmm_mean(data):
@@ -434,7 +422,6 @@ def callback_odom(data):
     odom = data
 
 
-# What shall we do here? 
 def callback_path(data): 
     global planned_path
     planned_path = data.poses
