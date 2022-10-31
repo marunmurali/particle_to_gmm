@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 # coding: utf-8
 
-# Definition: A DWA controller used in the simulation experiment. 
+# Definition: Another DWA controller that doesn't rely on global path planner. 
 #
-# Date of programming: 2022/7/7 ~ 20xx/xx/xx
+# Date of programming: 2022/11/1 ~ 20xx/xx/xx
 #
-# Current progress: C
+# Current progress: N
 # A (working with a solid theoretical base) / B (seems to be working) / C (working with problems)
 # F (totally not working) / N (not completed)
 
