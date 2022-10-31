@@ -274,53 +274,57 @@ def control_with_gmm():
 
             for i in range(len(v_range)): 
 
-                for j in range(len(a_range)): 
+                v = v_range[i]
 
-                    v = v_range[i]
+                if (v >= -0.26) and (v <= 0.26): # to limit the speed of robot to save some computational time
 
-                    a = a_range[j]
+                    for j in range(len(a_range)): 
 
-                    h = original_heading
-                    x = current_x
-                    y = current_y
+                        
 
-                    for k1 in range(dwa_horizon_param): 
+                        a = a_range[j]
 
-                        x -= t_interval * v * np.sin(h)
-                        y += t_interval * v * np.cos(h)
+                        h = original_heading
+                        x = current_x
+                        y = current_y
 
-                        h += t_interval * a
+                        for k1 in range(dwa_horizon_param): 
 
-                    min_error = np.inf
+                            x -= t_interval * v * np.sin(h)
+                            y += t_interval * v * np.cos(h)
 
-                    # Calculating minimal distance to the path
-                    for k2, pose in enumerate(planned_path[:min(len(planned_path), 25)]):  
+                            h += t_interval * a
 
-                        d = linear_distance(x, pose.pose.position.x, y, pose.pose.position.y)
+                        min_error = np.inf
 
-                        if d < min_error: 
-                            min_error = d
+                        # Calculating minimal distance to the path
+                        for k2, pose in enumerate(planned_path[:min(len(planned_path), 25)]):  
 
-                    # angular difference
-                    # rad_diff = np.abs(goal_heading - h) 
-                    # if rad_diff > np.pi: 
-                    #     rad_diff = 2 * np.pi - rad_diff
+                            d = linear_distance(x, pose.pose.position.x, y, pose.pose.position.y)
 
-                    remaining_distance = linear_distance(x, goal_x, y, goal_y)
+                            if d < min_error: 
+                                min_error = d
 
-                    # Edition 2
-                    # cost_function = 1.0 * pow(min_error, 2) - 1.0 * pow(remaining_distance - current_distance, 2)
-                    cost_function = 1.0 * pow(min_error, 2) + 1.0 * (remaining_distance - current_distance) * np.abs(remaining_distance - current_distance)
+                        # angular difference
+                        # rad_diff = np.abs(goal_heading - h) 
+                        # if rad_diff > np.pi: 
+                        #     rad_diff = 2 * np.pi - rad_diff
 
-                    # Edition 1
-                    # cost_function = 1.0 * min_error + 1.0 * remaining_distance
+                        remaining_distance = linear_distance(x, goal_x, y, goal_y)
 
-                    # cost_function = 1 * min_distance + 0.1 / np.pi * rad_diff + 1 * remaining_distance
+                        # Edition 2
+                        # cost_function = 1.0 * pow(min_error, 2) - 1.0 * pow(remaining_distance - current_distance, 2)
+                        cost_function = 1.0 * pow(min_error, 2) + 1.0 * (remaining_distance - current_distance) * np.abs(remaining_distance - current_distance)
 
-                    if cost_function < optimal_cost_function: 
-                        local_optimal_v = v
-                        local_optimal_a = a
-                        optimal_cost_function = cost_function
+                        # Edition 1
+                        # cost_function = 1.0 * min_error + 1.0 * remaining_distance
+
+                        # cost_function = 1 * min_distance + 0.1 / np.pi * rad_diff + 1 * remaining_distance
+
+                        if cost_function < optimal_cost_function: 
+                            local_optimal_v = v
+                            local_optimal_a = a
+                            optimal_cost_function = cost_function
 
             optimal_v += weight * local_optimal_v
             optimal_a += weight * local_optimal_a

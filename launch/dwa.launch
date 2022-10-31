@@ -39,10 +39,10 @@
 
   <!-- <param name="gmm" value="$(arg gmm)"/> -->
 
-  <node name="error_plot"
+  <!-- <node name="error_plot"
         pkg="rqt_plot"
         type="rqt_plot"
-        args="/error/x" />
+        args="/error/x" /> -->
 
   <!-- <node pkg="particle_to_gmm" type="gmm_visualizer.py" name="gmm_visualizer" output="screen">
   </node> -->
