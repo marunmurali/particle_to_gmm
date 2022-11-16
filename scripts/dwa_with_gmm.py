@@ -13,7 +13,6 @@
 
 # - Basics
 
-from cmath import atan
 import random
 import threading
 import rospy
@@ -36,7 +35,7 @@ from std_msgs.msg import (Float32MultiArray, Float64MultiArray,
 
 from geometry_msgs.msg import (
     PoseArray, Pose, Point, PoseWithCovarianceStamped, Twist, PoseStamped)
-from nav_msgs.msg import (Odometry, Path)
+from nav_msgs.msg import (Odometry, Path, OccupancyGrid)
 
 
 # Global variables
@@ -60,6 +59,8 @@ gmm_weight = None
 MSE_array = None
 
 planned_path = None
+
+costmap = None
 
 t_interval = 0.1
 
@@ -171,6 +172,7 @@ def control_with_gmm():
     global odom, gmm_mean, gmm_covariance, gmm_weight, amcl_pose
     global goal_x, goal_y, goal_z, goal_w
     global initial_rotation_finish, path_following_finish, final_rotation_finish
+    global costmap
 
     # Initialize command publisher
     pubCmd = rospy.Publisher('cmd_vel', Twist, queue_size=10)
@@ -285,6 +287,19 @@ def control_with_gmm():
             optimal_cost_function = np.inf
 
             # current_distance = linear_distance(current_x, goal_x, current_y, goal_y)
+
+            # Let's put clearance calculation here for now
+
+            clearance_score = (
+                0.5 * costmap[1769 - 6 * 60] + 0.5 * costmap[1770 - 6 * 60]         # Left 
+                + 0.5 * costmap[1829 + 6 * 60] + 0.5 * costmap[1830 + 6 * 60]       # Right
+                + 0.5 * costmap[1769 - 6] + 0.5 * costmap[1829 - 6]                 # Up
+                + 0.5 * costmap[1770 + 6] + 0.5 * costmap[1830 + 6]                 # Down
+                + costmap[1769 - 4 * 60 - 4] + costmap[1770 - 4 * 60 + 4]           # Upper and lower left
+                + costmap[1829 + 4 * 60 - 4] + costmap[1830 + 4 * 60 + 4]           # Upper and lower right
+            )
+
+            rospy.loginfo('Cluster' + str(i) + '\'s clearance: ' + str(clearance_score))
 
             for i in range(len(v_range)):
 
@@ -475,11 +490,17 @@ def callback_goal(data):
 
     goal_heading = quaternion_to_rad(goal_z, goal_w)
 
-    rospy.loginfo('heading of goal: ' + str(goal_heading))
+    # rospy.loginfo('heading of goal: ' + str(goal_heading))
 
     initial_rotation_finish = False
     path_following_finish = False
     final_rotation_finish = False
+
+
+def callback_costmap(data): 
+    global costmap
+
+    costmap = data.data
 
 
 def control():
@@ -498,7 +519,8 @@ def control():
         start_time = time.time()
 
         if planned_path is None:
-            rospy.loginfo('Waiting for path...')
+            # rospy.loginfo('Waiting for path...')
+            pass
         else:
             if gmm_mean is None or gmm_covariance is None or gmm_weight is None:
                 control_with_no_gmm()
@@ -508,7 +530,7 @@ def control():
 
         end_time = time.time()
 
-        print("Runtime of the program is %f" % (end_time - start_time))
+        # print("Runtime of the program is %f" % (end_time - start_time))
 
         r.sleep()
 
@@ -539,6 +561,9 @@ if __name__ == '__main__':
 
     sub_goal = rospy.Subscriber(
         '/move_base_simple/goal', PoseStamped, callback_goal)
+
+    sub_costmap = rospy.Subscriber(
+        '/move_base/local_costmap/costmap', OccupancyGrid, callback_costmap)
 
     control_thread = threading.Thread(target=control)
     control_thread.start()

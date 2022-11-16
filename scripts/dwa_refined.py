@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # coding: utf-8
 
-# Definition: Another DWA controller that doesn't rely on global path planner. 
+# Definition: Another DWA controller that doesn't rely on global path planner. *Not finished and not being worked on. 
 #
 # Date of programming: 2022/11/1 ~ 20xx/xx/xx
 #
@@ -13,7 +13,6 @@
 
 # - Basics
 
-from cmath import atan
 import random
 import threading
 import rospy
