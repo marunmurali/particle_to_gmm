@@ -98,10 +98,11 @@ goal_heading = 0.0
 
 # center coordinates and relative distance
 
-mean_coordinate = np.zeros((2, 10)) 
-relative_distance = np.zeros((9, 9))
-distance_to_path = np.zeros((1, 10))
-distance_to_obstacle = np.zeros((1, 10))
+gmm_mean_coordinate = np.zeros((2, 10)) 
+gmm_weight = np.zeros(10)
+relative_distance = np.zeros((10, 10))
+distance_to_path = np.zeros(10)
+distance_to_obstacle = np.zeros(10)
 
 # Methods
 
@@ -178,6 +179,42 @@ to_multiarray_f64 = partial(_numpy_to_multiarray, Float64MultiArray)
 
 
 to_numpy_f64 = partial(_multiarray_to_numpy, float, np.float64)
+
+# def initial_rotation(): 
+# def path_following(): 
+# def final_rotation(): 
+
+
+
+def gmm_process(): 
+    global odom, gmm_mean, gmm_covariance, gmm_weight, amcl_pose
+    global goal_x, goal_y, goal_z, goal_w
+    global costmap
+
+    for i, (m, covar, weight) in enumerate(zip(gmm_mean, gmm_covariance, gmm_weight)):
+
+        # rospy.loginfo(str(i) + str(weight))
+
+        eig_val, eig_vec = linalg.eigh(covar)
+
+        v = 2.0 * np.sqrt(5.991) * np.sqrt(eig_val)
+        u = eig_vec[0] / linalg.norm(eig_vec[0])
+
+        angle = np.arctan(u[1] / u[0]) + 3 * np.pi / 2
+
+        if angle > 2 * np.pi:
+            angle = angle - 2 * np.pi
+
+        current_x = m[0]
+        current_y = m[1]
+
+        # save to global variable
+
+        gmm_mean_coordinate[0][i] = m[0]
+        gmm_mean_coordinate[1][i] = m[1]
+
+
+
 
 
 # Controller method
@@ -297,8 +334,8 @@ def control_with_gmm():
 
             # save to global variable
 
-            mean_coordinate[0][i] = m[0]
-            mean_coordinate[1][i] = m[1]
+            gmm_mean_coordinate[0][i] = m[0]
+            gmm_mean_coordinate[1][i] = m[1]
 
             # not being used now
             # b_ellipse = v[0]
@@ -399,11 +436,11 @@ def control_with_gmm():
             optimal_v += weight * local_optimal_v
             optimal_a += weight * local_optimal_a
 
-        print(mean_coordinate)
+        print(gmm_mean_coordinate)
 
         for i in range(1, n_gmm):
             for j in range (0, i): 
-                relative_distance[i][j] = np.sqrt(np.power(mean_coordinate[0][i] - mean_coordinate[0][j], 2) + np.power(mean_coordinate[1][i] - mean_coordinate[1][j], 2))
+                relative_distance[i][j] = np.sqrt(np.power(gmm_mean_coordinate[0][i] - gmm_mean_coordinate[0][j], 2) + np.power(gmm_mean_coordinate[1][i] - gmm_mean_coordinate[1][j], 2))
         
         print(relative_distance)
 
