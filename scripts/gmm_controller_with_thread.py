@@ -9,6 +9,8 @@
 # A (working fine with a solid theoretical base) / B (seems to be working fine) / C (working with problems or sometimes working)
 # F (totally not working) / N (not completed)
 
+# Copyright (c) 2022, Arun Muraleedharan, Li Hanjie
+# 
 # Original License Agreement: 
 #
 # Copyright (c) 2008, Willow Garage, Inc.

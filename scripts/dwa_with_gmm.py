@@ -13,7 +13,7 @@
 
 # - Basics
 
-import random
+# import random
 import threading
 import rospy
 import time
@@ -36,15 +36,23 @@ from std_msgs.msg import (Float32MultiArray, Float64MultiArray,
 from geometry_msgs.msg import (
     PoseArray, Pose, Point, PoseWithCovarianceStamped, Twist, PoseStamped)
 from nav_msgs.msg import (Odometry, Path, OccupancyGrid)
+from sensor_msgs.msg import LaserScan
 
 
 # Global variables
 
 # ROS parameters
-# gmm_flag = rospy.get_param('gmm')
+gmm_flag = rospy.get_param('gmm')
+n_gmm = rospy.get_param('num_of_gmm_dist')
+
 # dwa_random_param = 300
 
 dwa_horizon_param = 10
+
+# Spec of lidar
+
+lidar_range_min = 0.16
+lidar_range_max = 8.0
 
 # Storaged data
 
@@ -88,11 +96,18 @@ goal_w = 0.0
 
 goal_heading = 0.0
 
+# center coordinates and relative distance
+
+mean_coordinate = np.zeros((2, 10)) 
+relative_distance = np.zeros((9, 9))
+distance_to_path = np.zeros((1, 10))
+distance_to_obstacle = np.zeros((1, 10))
+
 # Methods
 
 # Conversion from original atan2 to the angle system we are using
 
-
+# Add description here
 def atan2_customized(y, x):
     rad = math.atan2(y, x) - np.pi / 2.0
 
@@ -117,14 +132,14 @@ def quaternion_to_rad(z, w):
 
 def rad_to_quaternion(rad):
     # Only in a 2-d context
-    rad += np.pi / 2
+    rad += np.pi / 2.0
 
-    rad /= 2
+    rad /= 2.0
 
-    quaternion = [0, 0, 0, 0]
+    quaternion = np.zeros(4)
 
-    quaternion[0] = 0
-    quaternion[1] = 0
+    # quaternion[0] = 0
+    # quaternion[1] = 0
 
     quaternion[2] = np.sin(rad)
 
@@ -280,6 +295,11 @@ def control_with_gmm():
             current_x = m[0]
             current_y = m[1]
 
+            # save to global variable
+
+            mean_coordinate[0][i] = m[0]
+            mean_coordinate[1][i] = m[1]
+
             # not being used now
             # b_ellipse = v[0]
             # a_ellipse = v[1]
@@ -299,7 +319,7 @@ def control_with_gmm():
                 + costmap[1829 + 4 * 60 - 4] + costmap[1830 + 4 * 60 + 4]           # Upper and lower right
             )
 
-            rospy.loginfo('Cluster' + str(i) + '\'s clearance: ' + str(clearance_score))
+            # rospy.loginfo('Cluster' + str(i) + '\'s clearance: ' + str(clearance_score))
 
             for i in range(len(v_range)):
 
@@ -356,8 +376,7 @@ def control_with_gmm():
                         # Edition 2
                         # cost_function = 1.0 * pow(min_error, 2) - 1.0 * pow(remaining_distance - current_distance, 2)
 
-                        cost_function = 1.0 * \
-                            pow(min_error, 2) + 1.0 * pow(0.26 - abs(v), 2)
+                        cost_function = 1.0 * pow(min_error, 2) + 1.0 * pow(0.26 - abs(v), 2)
 
                         # rospy.loginfo('error score: ' + str(1.0 * pow(min_error, 2)))
                         # rospy.loginfo('speed score: ' + str(1.0 * pow(min_error, 2)))
@@ -379,6 +398,14 @@ def control_with_gmm():
 
             optimal_v += weight * local_optimal_v
             optimal_a += weight * local_optimal_a
+
+        print(mean_coordinate)
+
+        for i in range(1, n_gmm):
+            for j in range (0, i): 
+                relative_distance[i][j] = np.sqrt(np.power(mean_coordinate[0][i] - mean_coordinate[0][j], 2) + np.power(mean_coordinate[1][i] - mean_coordinate[1][j], 2))
+        
+        print(relative_distance)
 
         if linear_distance(original_x, goal_x, original_y, goal_y) < 0.05:
             path_following_finish = True
@@ -506,13 +533,6 @@ def callback_costmap(data):
 def control():
     r = rospy.Rate(10)
 
-    # while not rospy.is_shutdown():
-    #     if gmm_mean is None or gmm_covariance is None or gmm_weight is None:
-    #         control_with_no_info()
-    #     else:
-    #         control_with_gmm(gmm_mean, gmm_covariance, gmm_weight, amcl_pose, odom)
-    #     r.sleep()
-
     while not rospy.is_shutdown():
         # rospy.loginfo('running... ')
 
@@ -538,12 +558,7 @@ def control():
 # Main method
 if __name__ == '__main__':
 
-    # rospy.init_node('state_feedback', anonymous=True)
-
     rospy.init_node('gmm_controller', anonymous=True)
-
-    # Preparing for randomization in DWA
-    # random.seed()
 
     sub_mean = rospy.Subscriber(
         'gmm_mean', Float64MultiArray, callback_gmm_mean)

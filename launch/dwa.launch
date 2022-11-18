@@ -3,6 +3,8 @@
   <!-- Arguments -->
 
   <arg name="num_of_gmm_dist" default="3"/>
+  <arg name="gmm" default="true"/>
+
 
   <!-- corridor route 1-->
   <arg name="orient_x" default="-28.5"/>
@@ -37,7 +39,7 @@
   <param name="goal_y" value="$(arg goal_y)"/>
   <param name="num_of_gmm_dist" value="$(arg num_of_gmm_dist)"/>
 
-  <!-- <param name="gmm" value="$(arg gmm)"/> -->
+  <param name="gmm" value="$(arg gmm)"/>
 
   <!-- <node name="error_plot"
         pkg="rqt_plot"
