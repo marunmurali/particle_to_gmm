@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
-# Software License Agreement (BSD License)
-#
+# coding: utf-8
+
+# Original License Agreement: 
+
 # Copyright (c) 2008, Willow Garage, Inc.
 # All rights reserved.
 #
@@ -30,8 +32,6 @@
 # LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
 # ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
-#
-# Revision $Id$
 
 ## Simple talker demo that listens to std_msgs/Strings published
 ## to the 'chatter' topic

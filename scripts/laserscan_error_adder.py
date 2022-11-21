@@ -1,8 +1,5 @@
 #!/usr/bin/env python3
-# Software License Agreement (BSD License)
-#
-# Copyright (c) 2021, Arun Muraleedharan.
-# All rights reserved.
+# coding: utf-8
 
 # Includes
 
@@ -49,8 +46,9 @@ def callback(data):
 
         # change from random to Gaussian noise
 
-        # 3% stddev when range <= 6.0m
-        # 5% stddev when range > 6.0m
+        # 3.33mm stddev when range < 0.3m
+        # 1.00% stddev when 0.3m <= range < 6.0m
+        # 1.67% stddev when range >= 6.0m
 
         # for i, distance in enumerate(new_scan.ranges):
         
@@ -59,11 +57,14 @@ def callback(data):
             distance = new_ranges[i]
 
             if distance < 0.3: 
-                error = np.random.normal(0, 0.01 * distance)
+                error = np.random.normal(0, 0.01 / 3.0)
             elif distance <= 6.0: 
-                error = np.random.normal(0, 0.03 * distance)
+                error = np.random.normal(0, 0.03 / 3.0 * distance)
             else: 
-                error = np.random.normal(0, 0.05 * distance)
+                error = np.random.normal(0, 0.05 / 3.0 * distance)
+
+            # Test
+            # error = np.random.normal(0, 1)
 
             new_ranges[i] = new_ranges[i] + error
 

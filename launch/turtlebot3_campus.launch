@@ -1,16 +1,22 @@
 <launch>
   <arg name="model" default="$(env TURTLEBOT3_MODEL)" doc="model type [burger, waffle, waffle_pi]"/>
 
-  <arg name="x_pos" default="37.0"/>
+  <!-- Route 1 -->
+  <!-- <arg name="x_pos" default="37.0"/>
   <arg name="y_pos" default="-97.0"/>
-  <!-- <arg name="x_pos" default="8.0"/>
-  <arg name="y_pos" default="-45.5"/> -->
   <arg name="z_pos" default="0.0"/>
+  <arg name="yaw" default="0.507"/> -->
+  
+  <!-- Route 2 -->
+  <arg name="x_pos" default="8.0"/>
+  <arg name="y_pos" default="-45.5"/>
+  <arg name="z_pos" default="0.0"/>
+  <arg name="yaw" default="5.19"/>
 
   <arg name="roll" default="0.0"/>
   <arg name="pitch" default="0.0"/>
-  <arg name="yaw" default="0.0"/>
-  <!-- <arg name="yaw" default="5.19"/> -->
+
+
 
 
   <!-- <env name="GAZEBO_MODEL_PATH" value="$(env HOME)/catkin_ws/src/turtlebot3_simulations/turtlebot3_gazebo/worlds/models:$(optenv GAZEBO_MODEL_PATH)" /> -->
@@ -26,7 +32,8 @@
     <arg name="paused" value="false"/>
     <arg name="use_sim_time" value="true"/>
     <arg name="headless" value="$(arg headless)"/>
-    <arg name="world_name" value="$(find turtlebot3_gazebo)/worlds/campus2.world"/>
+    <!-- <arg name="world_name" value="$(find turtlebot3_gazebo)/worlds/campus2.world"/> -->
+    <arg name="world_name" value="$(find particle_to_gmm)/support/turtlebot3_simulations/turtlebot3_gazebo/worlds/campus2.world"/>
   </include>
   
   <!-- <param name="robot_description" command="$(find xacro)/xacro $(find turtlebot3_description)/urdf/turtlebot3_$(arg model).urdf.xacro" /> -->

@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
-# Software License Agreement (BSD License)
-#
-# Copyright (c) 2021, Arun Muraleedharan.
-# All rights reserved.
-
+# coding: utf-8
 
 from numpy.core.fromnumeric import mean
 import rospy

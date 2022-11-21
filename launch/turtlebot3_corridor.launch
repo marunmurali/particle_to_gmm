@@ -1,20 +1,22 @@
 <launch>
   <arg name="model" default="$(env TURTLEBOT3_MODEL)" doc="model type [burger, waffle, waffle_pi]"/>
+  
+  <!-- Corridor route 1 -->
   <arg name="x_pos" default="-28.5"/>
   <arg name="y_pos" default="-6.0"/>
   <arg name="z_pos" default="0.0"/>
-  
+  <arg name="yaw" default="1.837"/>
+
   <!-- corridor route 2-->
-  <!-- <arg name="x" default="-45.0"/>
-  <arg name="y" default="-0.5"/>    
-  <arg name="a" default="1.57"/>  -->
+  <!-- <arg name="x_pos" default="-45.8"/>
+  <arg name="y_pos" default="-1.7"/>
+  <arg name="z_pos" default="0.0"/>
+  <arg name="yaw" default="0.0497"/> -->
 
   <arg name="roll" default="0.0"/>
   <arg name="pitch" default="0.0"/>
-  <!-- <arg name="yaw" default="0.0"/> -->
-  <arg name="yaw" default="1.57"/>
 
-  <env name="GAZEBO_MODEL_PATH" value="$(env HOME)/catkin_ws/src/turtlebot3_simulations/turtlebot3_gazebo/worlds/models:$(optenv GAZEBO_MODEL_PATH)" />
+  <!-- <env name="GAZEBO_MODEL_PATH" value="$(env HOME)/catkin_ws/src/turtlebot3_simulations/turtlebot3_gazebo/worlds/models:$(optenv GAZEBO_MODEL_PATH)" /> -->
 
   <arg name="debug" default="false"/>
   <arg name="gui" default="true"/>
@@ -29,7 +31,8 @@
     <arg name="headless" value="$(arg headless)"/>
     <arg name="world_name" value="$(find particle_to_gmm)/support/turtlebot3_simulations/turtlebot3_gazebo/worlds/corridor1.world"/>
   </include>
-  <param name="robot_description" command="$(find xacro)/xacro $(find turtlebot3_description)/urdf/turtlebot3_$(arg model).urdf.xacro" />
+  <!-- <param name="robot_description" command="$(find xacro)/xacro $(find turtlebot3_description)/urdf/turtlebot3_$(arg model).urdf.xacro" /> -->
+  <param name="robot_description" command="$(find xacro)/xacro $(find particle_to_gmm)/support/description/turtlebot3_$(arg model).urdf.xacro" />
 
   <node name="spawn_urdf" pkg="gazebo_ros" type="spawn_model" args="-urdf -model turtlebot3 -x $(arg x_pos) -y $(arg y_pos) -z $(arg z_pos)  -R $(arg roll) -P $(arg pitch) -Y $(arg yaw) -param robot_description" />
 </launch>

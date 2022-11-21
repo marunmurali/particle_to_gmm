@@ -1,6 +1,17 @@
 #!/usr/bin/env python3
 # coding: utf-8
-# Software License Agreement (BSD License)
+
+# Definition: A state-feedback-based contoller used in the simulation environment of Turtlebot 3. 
+#
+# Date of programming: 2022/2 ~ 2022/6 (mainly)
+#
+# Current progress: B
+# A (working fine with a solid theoretical base) / B (seems to be working fine) / C (working with problems or sometimes working)
+# F (totally not working) / N (not completed)
+
+# Copyright (c) 2022, Arun Muraleedharan, Li Hanjie
+# 
+# Original License Agreement: 
 #
 # Copyright (c) 2008, Willow Garage, Inc.
 # All rights reserved.
@@ -32,12 +43,10 @@
 # ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-# A contoller used in the simulation environment of Turtlebot 3. 
-
 
 # Imports
 
-# Basics
+# - Basics
 import threading
 from turtle import position
 import rospy
@@ -99,6 +108,10 @@ start_time = None
 mse_list = []
 mse_calculation = 0
 
+# For corridor (later to be changed to parameter)
+# count_time = 50.0
+
+# For campus
 count_time = 80.0
 
 # Methods
@@ -253,8 +266,8 @@ def control_with_gmm(means, covariances, weights, amcl_pose, odom):
 
             linear_cmd += weight * (cmd3 + cmd4)
 
-            if linear_cmd < -0.10: 
-                linear_cmd = -0.10
+        if linear_cmd < -0.10: 
+            linear_cmd = -0.10
            
         # rospy.loginfo('controlling with gmm')
         
@@ -309,7 +322,7 @@ def control_with_gmm(means, covariances, weights, amcl_pose, odom):
 
     cmd_vel_msg = Twist()
 
-    cmd_vel_msg.linear.x = 0.26 + linear_cmd
+    cmd_vel_msg.linear.x = 0.25 + linear_cmd
     # cmd_vel_msg.linear.x = 0.20 + linear_cmd + 0.1 * (np.random.random(1) - 0.5)
         
     cmd_vel_msg.linear.y = 0.0    
@@ -321,7 +334,7 @@ def control_with_gmm(means, covariances, weights, amcl_pose, odom):
 
     global stop_flag
 
-    if dist_goal < 0.2: 
+    if dist_goal < 0.1: 
         stop_flag = 1
 
     if stop_flag == 1: 
