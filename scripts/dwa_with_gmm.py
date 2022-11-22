@@ -62,21 +62,28 @@ gmm_covariance = None
 gmm_weight = None
 
 # Mean Square Error
+# Mean Square Error
 MSE_array = None
 
+# Planned path by navigation node
 # Planned path by navigation node
 planned_path = None
 
 # Costmap array
+# Costmap array
 costmap = None
 
+# Control time interval
 # Control time interval
 t_interval = 0.1
 
 # Odometry of the robot
+# Odometry of the robot
 odom = Odometry()
 
 # # Error message (for plotting)
+
+# Error message (for plotting)
 # error_msg = Point()
 
 # If AMCL is processed to GMM and control based on GMM can be done
