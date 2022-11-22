@@ -45,71 +45,73 @@ from sensor_msgs.msg import LaserScan
 gmm_flag = rospy.get_param('gmm')
 n_gmm = rospy.get_param('num_of_gmm_dist')
 
+# DWA parameters
 # dwa_random_param = 300
-
 dwa_horizon_param = 10
 
 # Spec of lidar
-
 lidar_range_min = 0.16
 lidar_range_max = 8.0
 
 # Storaged data
-
 amcl_pose = None
 
 # GMM parameters
-
 gmm_mean = None
 gmm_covariance = None
 gmm_weight = None
 
+# Mean Square Error
 MSE_array = None
 
+# Planned path by navigation node
 planned_path = None
 
+# Costmap array
 costmap = None
 
+# Control time interval
 t_interval = 0.1
 
+# Odometry of the robot
 odom = Odometry()
+
+# Error message (for plotting)
 # error_msg = Point()
 
+# If AMCL is processed to GMM and control based on GMM can be done
+gmm_info = False
+
+# Control states
 # initial_rotation_finish = True
 initial_rotation_finish = False
-
 path_following_finish = False
-
 final_rotation_finish = False
 
 stop_flag = False
 
-start_time = None
-
-# mse_list = []
-# mse_calculation = 0
-
+# Information of goal set in RViz
 goal_x = 0.0
 goal_y = 0.0
 goal_z = 0.0
 goal_w = 0.0
-
 goal_heading = 0.0
 
-# center coordinates and relative distance
-
-gmm_mean_coordinate = np.zeros((2, 10)) 
+# Center coordinates and relative distance
+gmm_mean_coordinate = np.zeros((2, 10))
 gmm_weight = np.zeros(10)
 relative_distance = np.zeros((10, 10))
 distance_to_path = np.zeros(10)
 distance_to_obstacle = np.zeros(10)
 
+# How to save the covariance of gmm? 
+# Is that in x, y direction? 
+gmm_covariance = np.zeros((2, 10)) 
+
 # Methods
 
 # Conversion from original atan2 to the angle system we are using
-
-# Add description here
-def atan2_customized(y, x):
+def atan2_customized(y, x): 
     rad = math.atan2(y, x) - np.pi / 2.0
 
     if rad < -np.pi:
@@ -139,11 +141,7 @@ def rad_to_quaternion(rad):
 
     quaternion = np.zeros(4)
 
-    # quaternion[0] = 0
-    # quaternion[1] = 0
-
     quaternion[2] = np.sin(rad)
-
     quaternion[3] = np.cos(rad)
 
     return quaternion
@@ -177,19 +175,13 @@ def _multiarray_to_numpy(pytype, dtype, multiarray):
 
 to_multiarray_f64 = partial(_numpy_to_multiarray, Float64MultiArray)
 
-
 to_numpy_f64 = partial(_multiarray_to_numpy, float, np.float64)
 
-# def initial_rotation(): 
-# def path_following(): 
-# def final_rotation(): 
 
+def gmm_process():
+    global gmm_info
 
-
-def gmm_process(): 
-    global odom, gmm_mean, gmm_covariance, gmm_weight, amcl_pose
-    global goal_x, goal_y, goal_z, goal_w
-    global costmap
+    gmm_info = True
 
     for i, (m, covar, weight) in enumerate(zip(gmm_mean, gmm_covariance, gmm_weight)):
 
@@ -197,7 +189,10 @@ def gmm_process():
 
         eig_val, eig_vec = linalg.eigh(covar)
 
+        # Is this correct? 
         v = 2.0 * np.sqrt(5.991) * np.sqrt(eig_val)
+        
+        # Eigenvectors of covariance matrix
         u = eig_vec[0] / linalg.norm(eig_vec[0])
 
         angle = np.arctan(u[1] / u[0]) + 3 * np.pi / 2
@@ -205,16 +200,122 @@ def gmm_process():
         if angle > 2 * np.pi:
             angle = angle - 2 * np.pi
 
-        current_x = m[0]
-        current_y = m[1]
+        # current_x = m[0]
+        # current_y = m[1]
 
-        # save to global variable
-
+        # save to global variable instead
         gmm_mean_coordinate[0][i] = m[0]
         gmm_mean_coordinate[1][i] = m[1]
 
+        gmm_weight[i] = weight
 
 
+def robot_control(v, a): 
+    # Initialize command publisher
+    pubCmd = rospy.Publisher('cmd_vel', Twist, queue_size = 10)
+    cmd_vel_msg = Twist()
+
+    cmd_vel_msg.linear.x = v
+    cmd_vel_msg.linear.y = 0.0
+    cmd_vel_msg.linear.z = 0.0
+
+    cmd_vel_msg.angular.x = 0.0
+    cmd_vel_msg.angular.y = 0.0
+    cmd_vel_msg.angular.z = a
+
+    # rospy.loginfo('v: ' + str(optimal_v))
+    # rospy.loginfo('a: ' + str(optimal_a))
+    pubCmd.publish(cmd_vel_msg)
+
+
+def cost_function_calculation(): 
+    (j_1, j_2, j_3, j_4) = 0.0
+
+    np.
+    
+    
+    return (j_1, j_2, j_3, j_4)
+
+
+def path_following():
+    # note: using several kinds of cost function J. 
+
+    original_v = odom.twist.twist.linear.x
+    original_a = odom.twist.twist.angular.z
+
+    (optimal_v, optimal_a) = (0.0, 0.0)
+
+    v_range = np.array([-0.1, -0.08, -0.06, -0.04, -0.02, 0,
+                       0.02, 0.04, 0.06, 0.08, 0.1]) + original_v
+
+    a_range = np.array([-0.5, -0.4, -0.3, -0.2, -0.1, 0.0,
+                       0.1, 0.2, 0.3, 0.4, 0.5]) + original_a
+
+
+    return (optimal_v, optimal_a)
+
+
+def initial_rotation(original_x, original_y, original_heading):
+    # Inputs: original x, y and heading of the robot
+    # Outputs: an angular command
+    # To instruct the robot to turn to (approximately) the direction of the start of the path
+    global initial_rotation_finish
+
+    optimal_v = 0.0
+
+    # When distance is very small,  not turning to save time.
+    if linear_distance(original_x, goal_x, original_y, goal_y) < 2.0:
+        initial_rotation_finish = True
+
+    follow_heading = 0.0
+
+    if len(planned_path) < 5:
+        follow_heading = goal_heading
+    else:
+        follow_heading = atan2_customized(
+            planned_path[4].pose.position.y - planned_path[0].pose.position.y, planned_path[4].pose.position.x - planned_path[0].pose.position.x)
+
+    heading_difference = original_heading - follow_heading
+
+    if heading_difference > np.pi:
+        heading_difference = heading_difference - 2.0 * np.pi
+
+    if heading_difference < -np.pi:
+        heading_difference = heading_difference + 2.0 * np.pi
+
+    if heading_difference > 0.1:
+        optimal_a = -1.0
+    elif heading_difference < -0.1:
+        optimal_a = 1.0
+    else:
+        initial_rotation_finish = True
+        rospy.loginfo('Initial rotation finished. ')
+
+    return (optimal_v, optimal_a)
+
+
+def final_rotation(original_heading):
+    global final_rotation_finish
+
+    optimal_v = 0.0
+
+    heading_difference = original_heading - goal_heading
+
+    if heading_difference > np.pi:
+        heading_difference = heading_difference - 2.0 * np.pi
+
+    if heading_difference < -np.pi:
+        heading_difference = heading_difference + 2.0 * np.pi
+
+    if heading_difference > 0.1:
+        optimal_a = -0.5
+    elif heading_difference < -0.1:
+        optimal_a = 0.5
+    else:
+        final_rotation_finish = True
+        rospy.loginfo('Final rotation finished. ')
+
+    return (optimal_v, optimal_a)
 
 
 # Controller method
@@ -226,8 +327,6 @@ def control_with_gmm():
     global initial_rotation_finish, path_following_finish, final_rotation_finish
     global costmap
 
-    # Initialize command publisher
-    pubCmd = rospy.Publisher('cmd_vel', Twist, queue_size=10)
     # pubError = rospy.Publisher('error', Point, queue_size=10)
 
     # original_v = odom.twist.twist.linear.x
@@ -237,10 +336,6 @@ def control_with_gmm():
 
     original_z = amcl_pose.pose.pose.orientation.z
     original_w = amcl_pose.pose.pose.orientation.w
-
-    # original_z = odom.pose.pose.orientation.z
-    # original_w = odom.pose.pose.orientation.w
-
     original_heading = quaternion_to_rad(original_z, original_w)
 
     # rospy.loginfo('x: ' + str(original_x))
@@ -252,249 +347,183 @@ def control_with_gmm():
     optimal_v = 0.0
     optimal_a = 0.0
 
-    original_v = odom.twist.twist.linear.x
-    original_a = odom.twist.twist.angular.z
-
-    rospy.loginfo(str(original_a))
+    # rospy.loginfo(str(original_a))
 
     # We should change the sample space according to the robot's current velocity and acceleration limit
+    # It can't be found in the document, but estimation can be made like a max acceleration of 1.0 m/s2
 
-    # But currently it can't be found
-    # Estimation can be made like a max acceleration of 1.0 m/s2
+    # original_v = odom.twist.twist.linear.x
+    # original_a = odom.twist.twist.angular.z
 
-    v_range = np.array([-0.1, -0.08, -0.06, -0.04, -0.02, 0,
-                       0.02, 0.04, 0.06, 0.08, 0.1]) + original_v
-    # v_range = np.array([0.05, 0.07, 0.09, 0.11, 0.13, 0.15, 0.17, 0.19, 0.21, 0.23, 0.25])
 
-    a_range = np.array([-0.5, -0.4, -0.3, -0.2, -0.1, 0.0,
-                       0.1, 0.2, 0.3, 0.4, 0.5]) + original_a
+    # v_range = np.array([-0.1, -0.08, -0.06, -0.04, -0.02, 0,
+    #                    0.02, 0.04, 0.06, 0.08, 0.1]) + original_v
+
+    # a_range = np.array([-0.5, -0.4, -0.3, -0.2, -0.1, 0.0,
+    #                    0.1, 0.2, 0.3, 0.4, 0.5]) + original_a
 
     if initial_rotation_finish is False:
-
-        # When distance is very small,  not turning to save time.
-        if linear_distance(original_x, goal_x, original_y, goal_y) < 2.0:
-            initial_rotation_finish = True
-
-        follow_heading = 0.0
-        if len(planned_path) < 5:
-            follow_heading = goal_heading
-        else:
-            # rospy.loginfo(str(planned_path[9].pose.position.x))
-
-            follow_heading = atan2_customized(
-                planned_path[4].pose.position.y - planned_path[0].pose.position.y, planned_path[4].pose.position.x - planned_path[0].pose.position.x)
-
-        heading_difference = original_heading - follow_heading
-
-        if heading_difference > np.pi:
-            heading_difference = heading_difference - 2.0 * np.pi
-
-        if heading_difference < -np.pi:
-            heading_difference = heading_difference + 2.0 * np.pi
-
-        if heading_difference > 0.1:
-            optimal_a = -1.0
-        elif heading_difference < -0.1:
-            optimal_a = 1.0
-
-        else:
-            initial_rotation_finish = True
-
-            rospy.loginfo('Initial rotation finished. ')
+        (optimal_v, optimal_a) = initial_rotation(original_x, original_y, original_heading)
 
     elif path_following_finish is False:
 
-        # Log path
-        # for k2, pose in enumerate(planned_path[:min(len(planned_path), 4)]):
+        path_following(original_x, original_y, original_heading)
 
-        #     # An idea of logging the coordinates of points
+        # # Log path
+        # # for k2, pose in enumerate(planned_path[:min(len(planned_path), 4)]):
 
-        #     rospy.loginfo(str(k2 + 1) + ':x = ' + str(pose.pose.position.x) + ':y = ' + str(pose.pose.position.y))
+        # #     # Logging the coordinates of points
 
-        optimal_v = 0.0
+        # #     rospy.loginfo(str(k2 + 1) + ':x = ' + str(pose.pose.position.x) + ':y = ' + str(pose.pose.position.y))
 
-        optimal_a = 0.0
+        # optimal_v = 0.0
 
-        for i, (m, covar, weight) in enumerate(zip(gmm_mean, gmm_covariance, gmm_weight)):
+        # optimal_a = 0.0
 
-            # rospy.loginfo(str(i) + str(weight))
+        # for i, (m, covar, weight) in enumerate(zip(gmm_mean, gmm_covariance, gmm_weight)):
 
-            eig_val, eig_vec = linalg.eigh(covar)
+        #     # rospy.loginfo(str(i) + str(weight))
 
-            v = 2.0 * np.sqrt(5.991) * np.sqrt(eig_val)
-            u = eig_vec[0] / linalg.norm(eig_vec[0])
+        #     eig_val, eig_vec = linalg.eigh(covar)
 
-            angle = np.arctan(u[1] / u[0]) + 3 * np.pi / 2
+        #     v = 2.0 * np.sqrt(5.991) * np.sqrt(eig_val)
+        #     u = eig_vec[0] / linalg.norm(eig_vec[0])
 
-            if angle > 2 * np.pi:
-                angle = angle - 2 * np.pi
+        #     angle = np.arctan(u[1] / u[0]) + 3 * np.pi / 2
 
-            current_x = m[0]
-            current_y = m[1]
+        #     if angle > 2 * np.pi:
+        #         angle = angle - 2 * np.pi
 
-            # save to global variable
+        #     current_x = m[0]
+        #     current_y = m[1]
 
-            gmm_mean_coordinate[0][i] = m[0]
-            gmm_mean_coordinate[1][i] = m[1]
+        #     # save to global variable
 
-            # not being used now
-            # b_ellipse = v[0]
-            # a_ellipse = v[1]
+        #     gmm_mean_coordinate[0][i] = m[0]
+        #     gmm_mean_coordinate[1][i] = m[1]
 
-            optimal_cost_function = np.inf
+        #     # not being used now
+        #     # b_ellipse = v[0]
+        #     # a_ellipse = v[1]
 
-            # current_distance = linear_distance(current_x, goal_x, current_y, goal_y)
+        #     optimal_cost_function = np.inf
 
-            # Let's put clearance calculation here for now
+        #     # current_distance = linear_distance(current_x, goal_x, current_y, goal_y)
 
-            clearance_score = (
-                0.5 * costmap[1769 - 6 * 60] + 0.5 * costmap[1770 - 6 * 60]         # Left 
-                + 0.5 * costmap[1829 + 6 * 60] + 0.5 * costmap[1830 + 6 * 60]       # Right
-                + 0.5 * costmap[1769 - 6] + 0.5 * costmap[1829 - 6]                 # Up
-                + 0.5 * costmap[1770 + 6] + 0.5 * costmap[1830 + 6]                 # Down
-                + costmap[1769 - 4 * 60 - 4] + costmap[1770 - 4 * 60 + 4]           # Upper and lower left
-                + costmap[1829 + 4 * 60 - 4] + costmap[1830 + 4 * 60 + 4]           # Upper and lower right
-            )
+        #     # Let's put clearance calculation here for now
 
-            # rospy.loginfo('Cluster' + str(i) + '\'s clearance: ' + str(clearance_score))
+        #     clearance_score = (
+        #         0.5 * costmap[1769 - 6 * 60] + 0.5 * costmap[1770 - 6 * 60]         # Left
+        #         + 0.5 * costmap[1829 + 6 * 60] + 0.5 * costmap[1830 + 6 * 60]       # Right
+        #         + 0.5 * costmap[1769 - 6] + 0.5 * costmap[1829 - 6]                 # Up
+        #         + 0.5 * costmap[1770 + 6] + 0.5 * costmap[1830 + 6]                 # Down
+        #         + costmap[1769 - 4 * 60 - 4] + costmap[1770 - 4 * 60 + 4]           # Upper and lower left
+        #         + costmap[1829 + 4 * 60 - 4] + costmap[1830 + 4 * 60 + 4]           # Upper and lower right
+        #     )
 
-            for i in range(len(v_range)):
+        #     # rospy.loginfo('Cluster' + str(i) + '\'s clearance: ' + str(clearance_score))
 
-                v = v_range[i]
+        #     for i in range(len(v_range)):
 
-                # to limit the speed of robot to save some computational time
-                if (v >= -0.26) and (v <= 0.26):
+        #         v = v_range[i]
 
-                    for j in range(len(a_range)):
+        #         # to limit the speed of robot to save some computational time
+        #         if (v >= -0.26) and (v <= 0.26):
 
-                        a = a_range[j]
+        #             for j in range(len(a_range)):
 
-                        dwa_heading = original_heading
-                        dwa_x = current_x
-                        dwa_y = current_y
+        #                 a = a_range[j]
 
-                        for k1 in range(dwa_horizon_param):
+        #                 dwa_heading = original_heading
+        #                 dwa_x = current_x
+        #                 dwa_y = current_y
 
-                            dwa_x -= t_interval * v * np.sin(dwa_heading)
-                            dwa_y += t_interval * v * np.cos(dwa_heading)
+        #                 for k1 in range(dwa_horizon_param):
 
-                            dwa_heading += t_interval * a
+        #                     dwa_x -= t_interval * v * np.sin(dwa_heading)
+        #                     dwa_y += t_interval * v * np.cos(dwa_heading)
 
-                        min_error = np.inf
+        #                     dwa_heading += t_interval * a
 
-                        # Calculating minimal distance to the path
-                        # for k2, pose in enumerate(planned_path[:min(len(planned_path) - 1, 19)]):
+        #                 min_error = np.inf
 
-                        #     # An idea of logging the coordinates of points
+        #                 # Calculating minimal distance to the path
+        #                 # for k2, pose in enumerate(planned_path[:min(len(planned_path) - 1, 19)]):
 
-                        #     # rospy.loginfo(str(atan2_customized(pose.pose.position.y - y, pose.pose.position.x - x)))
+        #                 #     # An idea of logging the coordinates of points
 
-                        #     d = linear_distance(dwa_x, pose.pose.position.x, dwa_y, pose.pose.position.y)
+        #                 #     # rospy.loginfo(str(atan2_customized(pose.pose.position.y - y, pose.pose.position.x - x)))
 
-                        #     if d < min_error:
-                        #         min_error = d
+        #                 #     d = linear_distance(dwa_x, pose.pose.position.x, dwa_y, pose.pose.position.y)
 
-                        # Calculating minimal distance to the path (new)
-                        # Somehow works better than the previous method
+        #                 #     if d < min_error:
+        #                 #         min_error = d
 
-                        pose = planned_path[min(len(planned_path) - 1, 19)]
+        #                 # Calculating minimal distance to the path (new)
+        #                 # Somehow works better than the previous method
 
-                        min_error = linear_distance(
-                            dwa_x, pose.pose.position.x, dwa_y, pose.pose.position.y)
+        #                 pose = planned_path[min(len(planned_path) - 1, 19)]
 
-                        # angular difference
-                        # rad_diff = np.abs(goal_heading - h)
-                        # if rad_diff > np.pi:
-                        #     rad_diff = 2 * np.pi - rad_diff
+        #                 min_error = linear_distance(
+        #                     dwa_x, pose.pose.position.x, dwa_y, pose.pose.position.y)
 
-                        remaining_distance = linear_distance(
-                            dwa_x, goal_x, dwa_y, goal_y)
+        #                 # angular difference
+        #                 # rad_diff = np.abs(goal_heading - h)
+        #                 # if rad_diff > np.pi:
+        #                 #     rad_diff = 2 * np.pi - rad_diff
 
-                        # Edition 2
-                        # cost_function = 1.0 * pow(min_error, 2) - 1.0 * pow(remaining_distance - current_distance, 2)
+        #                 remaining_distance = linear_distance(
+        #                     dwa_x, goal_x, dwa_y, goal_y)
 
-                        cost_function = 1.0 * pow(min_error, 2) + 1.0 * pow(0.26 - abs(v), 2)
+        #                 # Edition 2
+        #                 # cost_function = 1.0 * pow(min_error, 2) - 1.0 * pow(remaining_distance - current_distance, 2)
 
-                        # rospy.loginfo('error score: ' + str(1.0 * pow(min_error, 2)))
-                        # rospy.loginfo('speed score: ' + str(1.0 * pow(min_error, 2)))
+        #                 cost_function = 1.0 * pow(min_error, 2) + 1.0 * pow(0.26 - abs(v), 2)
 
-                        # if remaining_distance >= 1.0:
-                        #     cost_function = 1.0 * pow(min_error, 2) + 1.0 * pow(0.26 - abs(v), 2)
-                        # else:
-                        #     cost_function = 1.0 * pow(min_error, 2)
+        #                 # rospy.loginfo('error score: ' + str(1.0 * pow(min_error, 2)))
+        #                 # rospy.loginfo('speed score: ' + str(1.0 * pow(min_error, 2)))
 
-                        # Edition 1
-                        # cost_function = 1.0 * min_error + 1.0 * remaining_distance
+        #                 # if remaining_distance >= 1.0:
+        #                 #     cost_function = 1.0 * pow(min_error, 2) + 1.0 * pow(0.26 - abs(v), 2)
+        #                 # else:
+        #                 #     cost_function = 1.0 * pow(min_error, 2)
 
-                        # cost_function = 1 * min_distance + 0.1 / np.pi * rad_diff + 1 * remaining_distance
+        #                 # Edition 1
+        #                 # cost_function = 1.0 * min_error + 1.0 * remaining_distance
 
-                        if cost_function < optimal_cost_function:
-                            local_optimal_v = v
-                            local_optimal_a = a
-                            optimal_cost_function = cost_function
+        #                 # cost_function = 1 * min_distance + 0.1 / np.pi * rad_diff + 1 * remaining_distance
 
-            optimal_v += weight * local_optimal_v
-            optimal_a += weight * local_optimal_a
+        #                 if cost_function < optimal_cost_function:
+        #                     local_optimal_v = v
+        #                     local_optimal_a = a
+        #                     optimal_cost_function = cost_function
 
-        print(gmm_mean_coordinate)
+        #     optimal_v += weight * local_optimal_v
+        #     optimal_a += weight * local_optimal_a
 
-        for i in range(1, n_gmm):
-            for j in range (0, i): 
-                relative_distance[i][j] = np.sqrt(np.power(gmm_mean_coordinate[0][i] - gmm_mean_coordinate[0][j], 2) + np.power(gmm_mean_coordinate[1][i] - gmm_mean_coordinate[1][j], 2))
-        
-        print(relative_distance)
+        # print(gmm_mean_coordinate)
 
-        if linear_distance(original_x, goal_x, original_y, goal_y) < 0.05:
-            path_following_finish = True
-            rospy.loginfo('Path following finished. ')
+        # for i in range(1, n_gmm):
+        #     for j in range (0, i):
+        #         relative_distance[i][j] = np.sqrt(np.power(gmm_mean_coordinate[0][i] - gmm_mean_coordinate[0][j], 2) + np.power(gmm_mean_coordinate[1][i] - gmm_mean_coordinate[1][j], 2))
+
+        # print(relative_distance)
+
+        # if linear_distance(original_x, goal_x, original_y, goal_y) < 0.05:
+        #     path_following_finish = True
+        #     rospy.loginfo('Path following finished. ')
 
     elif final_rotation_finish is False:
-
-        heading_difference = original_heading - goal_heading
-
-        if heading_difference > np.pi:
-            heading_difference = heading_difference - 2.0 * np.pi
-
-        if heading_difference < -np.pi:
-            heading_difference = heading_difference + 2.0 * np.pi
-
-        if heading_difference > 0.1:
-            optimal_a = -0.5
-        elif heading_difference < -0.1:
-            optimal_a = 0.5
-        else:
-            final_rotation_finish = True
-            rospy.loginfo('Final rotation finished. ')
+        (optimal_v, optimal_a) = final_rotation(original_heading)
 
     else:
         pass
 
-    cmd_vel_msg = Twist()
-
-    cmd_vel_msg.linear.x = optimal_v
-    cmd_vel_msg.linear.y = 0.0
-    cmd_vel_msg.linear.z = 0.0
-
-    cmd_vel_msg.angular.x = 0.0
-    cmd_vel_msg.angular.y = 0.0
-    cmd_vel_msg.angular.z = optimal_a
-
-    pubCmd.publish(cmd_vel_msg)
-
-    # rospy.loginfo('v: ' + str(optimal_v))
-    # rospy.loginfo('a: ' + str(optimal_a))
+    robot_control(optimal_v, optimal_a)
 
 
 def control_with_no_gmm():
-    pubCmd = rospy.Publisher('cmd_vel', Twist, queue_size=10)
-
-    # global error_msg, odom
-
-    cmd_vel_msg = Twist()
-
-    cmd_vel_msg.linear.x = 0.01
-
-    pubCmd.publish(cmd_vel_msg)
+    robot_control(0.01, 0)
 
 
 # def print_path():
@@ -544,7 +573,7 @@ def callback_path(data):
 def callback_goal(data):
     global initial_rotation_finish, path_following_finish, final_rotation_finish
 
-    global goal_x, goal_y, goal_z, goal_w, goal_heading
+    global goal_x, goal_y, goal_heading
 
     goal_x = data.pose.position.x
     goal_y = data.pose.position.y
@@ -554,14 +583,14 @@ def callback_goal(data):
 
     goal_heading = quaternion_to_rad(goal_z, goal_w)
 
-    # rospy.loginfo('heading of goal: ' + str(goal_heading))
+    # rospy.loginfo('Goal reset. ')
 
     initial_rotation_finish = False
     path_following_finish = False
     final_rotation_finish = False
 
 
-def callback_costmap(data): 
+def callback_costmap(data):
     global costmap
 
     costmap = data.data
@@ -578,31 +607,30 @@ def control():
         if planned_path is None:
             # rospy.loginfo('Waiting for path...')
             pass
+
         else:
-            if gmm_mean is None or gmm_covariance is None or gmm_weight is None:
+            # if gmm_mean is None or gmm_covariance is None or gmm_weight is None:
+            if gmm_info is False:
                 control_with_no_gmm()
+            
             else:
                 control_with_gmm()
-            # control_with_gmm()
 
         end_time = time.time()
 
-        # print("Runtime of the program is %f" % (end_time - start_time))
+        rospy.loginfo('Runtime of the program is ' + str(end_time - start_time))
 
         r.sleep()
 
 
-# Main method
+# Main function
 if __name__ == '__main__':
 
     rospy.init_node('gmm_controller', anonymous=True)
 
-    sub_mean = rospy.Subscriber(
-        'gmm_mean', Float64MultiArray, callback_gmm_mean)
-    sub_cov = rospy.Subscriber(
-        'gmm_covar', Float64MultiArray, callback_gmm_covar)
-    sub_weight = rospy.Subscriber(
-        'gmm_weight', Float64MultiArray, callback_gmm_weight)
+    sub_gmm_mean = rospy.Subscriber('gmm_mean', Float64MultiArray, callback_gmm_mean)
+    sub_gmm_covar = rospy.Subscriber('gmm_covar', Float64MultiArray, callback_gmm_covar)
+    sub_gmm_weight = rospy.Subscriber('gmm_weight', Float64MultiArray, callback_gmm_weight)
 
     sub_amcl_pose = rospy.Subscriber(
         'amcl_pose', PoseWithCovarianceStamped, callback_amcl_pose)
@@ -619,7 +647,5 @@ if __name__ == '__main__':
 
     control_thread = threading.Thread(target=control)
     control_thread.start()
-
-    # start_time = rospy.get_time()
 
     rospy.spin()
