@@ -258,19 +258,18 @@ def robot_control(v, a):
     rospy.loginfo('a: ' + str(a))
     pubCmd.publish(cmd_vel_msg)
 
-def cost_function_calculation(min_dis, max_dev, rel_dis, spd_diff, cls_size):
-    # Here a cost function considering distance to goal,
+def cost_function_calculation(min_dis, max_dev, spd_diff, cls_rel_dis, cls_size):
 
     j_1 = alpha_1 * np.power(min_dis, 2)
     j_2 = alpha_2 * np.power(max_dev, 2)
-    j_3 = alpha_3 * np.power(rel_dis, 2)
-    j_4 = alpha_4 * np.power(spd_diff, 2)
-    j_5 = alpha_5 * cls_size
+    j_3 = alpha_3 * np.power(spd_diff, 2)
+    j_4 = alpha_4 * np.power(cls_rel_dis, 2)
+    j_5 = alpha_5 * np.power(cls_size, 2)
 
     # rospy.loginfo('min distance: ' + str(j_1))
     # rospy.loginfo('max deviation: ' + str(j_2))
-    # rospy.loginfo('relative distance: ' + str(j_3))
-    # rospy.loginfo('speed difference: ' + str(j_4))
+    # rospy.loginfo('speed difference: ' + str(j_3))
+    # rospy.loginfo('relative distance: ' + str(j_4))
     # rospy.loginfo('cluster size: ' + str(j_5))
 
 
@@ -435,7 +434,7 @@ def path_following(original_heading):
 
             # Calculation of cost function
 
-            cost_function = cost_function_calculation(min_distance_to_obstacle, max_deviation_from_path, sum_relative_distance, speed_diff, sum_cluster_size)
+            cost_function = cost_function_calculation(min_distance_to_obstacle, max_deviation_from_path, speed_diff, sum_relative_distance, sum_cluster_size)
 
             if cost_function < optimal_cost_function: 
                 optimal_cost_function = cost_function
