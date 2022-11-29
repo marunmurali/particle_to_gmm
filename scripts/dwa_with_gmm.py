@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 # coding: utf-8
 
-# Definition: A DWA controller used in the simulation experiment.
+# Definition: A DWA controller that can navigate the robot to the goal set in RViz while avoiding obstacles in the environment
 #
 # Date of programming: 2022/7/7 ~ 20xx/xx/xx
 #
-# Current progress: C
+# Current progress: N(F)
 # A (working with a solid theoretical base) / B (seems to be working) / C (working with problems)
 # F (totally not working) / N (not completed)
 
@@ -35,9 +35,9 @@ from std_msgs.msg import MultiArrayDimension
 from std_msgs.msg import Float64MultiArray
 
 from geometry_msgs.msg import (
-    PoseArray, Pose, Point, PoseWithCovarianceStamped, Twist, PoseStamped)
+    Twist, Point, Pose, PoseStamped, PoseWithCovarianceStamped, PoseArray)
 from nav_msgs.msg import (Odometry, Path, OccupancyGrid)
-# from sensor_msgs.msg import LaserScan
+from sensor_msgs.msg import LaserScan
 
 
 # Global variables
@@ -49,9 +49,9 @@ n_gmm = rospy.get_param('num_of_gmm_dist')
 # DWA parameters
 dwa_horizon_param = 10
 
-# # Spec of lidar
-# lidar_range_min = 0.16
-# lidar_range_max = 8.0
+# Spec of lidar
+lidar_range_min = 0.16
+lidar_range_max = 8.0
 
 # Storaged data
 amcl_pose = None
@@ -62,26 +62,19 @@ gmm_covariance = None
 gmm_weight = None
 
 # Mean Square Error
-# Mean Square Error
 MSE_array = None
 
-# Planned path by navigation node
 # Planned path by navigation node
 planned_path = None
 
 # Costmap array
-# Costmap array
 costmap = None
 
-# Control time interval
 # Control time interval
 t_interval = 0.1
 
 # Odometry of the robot
-# Odometry of the robot
 odom = Odometry()
-
-# # Error message (for plotting)
 
 # Error message (for plotting)
 # error_msg = Point()
@@ -108,7 +101,7 @@ goal_heading = 0.0
 gmm_mean_matrix = np.zeros((2, 10))
 gmm_weight_matrix = np.zeros(10)
 gmm_ellipse_direction = np.zeros(10)
-relative_distance = np.zeros((10, 10))
+relative_distance_matrix = np.zeros((10, 10))
 distance_to_path = np.zeros(10)
 distance_to_obstacle = np.zeros(10)
 
@@ -119,6 +112,16 @@ gmm_covariance_matrix = np.zeros((2, 10))
 pubCmd = rospy.Publisher('cmd_vel', Twist, queue_size=10)
 
 previous_v = 0.0
+
+laser_scan = None
+
+# DWA cost function coefficients
+alpha_1 = 1.0
+alpha_2 = 1.0
+alpha_3 = 1.0
+alpha_4 = 1.0
+alpha_5 = 1.0
+
 
 # Methods
 
@@ -224,7 +227,16 @@ def gmm_process():
 
             gmm_weight_matrix[i] = weight
 
+        # Calculation of relative distance of GMM clusters
+        for i in range(n_gmm):
+            for j in range(1, n_gmm):
+                relative_distance_matrix[i][j] = linear_distance(
+                    gmm_mean_matrix[0][i], gmm_mean_matrix[0][j], gmm_mean_matrix[1][i], gmm_mean_matrix[1][j])
+
         gmm_info = True
+
+        for i in range(n_gmm): 
+            rospy.loginfo('weight of ' + str(i + 1) + 'th cluster: ' + str(gmm_weight_matrix[i]))
 
 
 def robot_control(v, a):
@@ -242,17 +254,27 @@ def robot_control(v, a):
     cmd_vel_msg.angular.y = 0.0
     cmd_vel_msg.angular.z = a
 
-    # rospy.loginfo('v: ' + str(optimal_v))
-    # rospy.loginfo('a: ' + str(optimal_a))
+    rospy.loginfo('v: ' + str(v))
+    rospy.loginfo('a: ' + str(a))
     pubCmd.publish(cmd_vel_msg)
 
-
-def cost_function_calculation():
+def cost_function_calculation(min_dis, max_dev, rel_dis, spd_diff, cls_size):
     # Here a cost function considering distance to goal,
 
-    j = 0.0
+    j_1 = alpha_1 * np.power(min_dis, 2)
+    j_2 = alpha_2 * np.power(max_dev, 2)
+    j_3 = alpha_3 * np.power(rel_dis, 2)
+    j_4 = alpha_4 * np.power(spd_diff, 2)
+    j_5 = alpha_5 * cls_size
 
-    return j
+    # rospy.loginfo('min distance: ' + str(j_1))
+    # rospy.loginfo('max deviation: ' + str(j_2))
+    # rospy.loginfo('relative distance: ' + str(j_3))
+    # rospy.loginfo('speed difference: ' + str(j_4))
+    # rospy.loginfo('cluster size: ' + str(j_5))
+
+
+    return (j_1 + j_2 + j_3 + j_4 + j_5)
 
 
 # def refined_cost_function_calculation():
@@ -343,9 +365,11 @@ def path_following(original_heading):
     #     optimal_v += weight * local_optimal_v
     #     optimal_a += weight * local_optimal_a
 
-        # rospy.loginfo('optimal v: ' + str(optimal_v))
-        # rospy.loginfo('optimal a: ' + str(optimal_a))
+    # rospy.loginfo('optimal v: ' + str(optimal_v))
+    # rospy.loginfo('optimal a: ' + str(optimal_a))
 
+    optimal_cost_function = np.inf
+    
     for i in range(len(v_range)):
 
         v = v_range[i]
@@ -356,6 +380,68 @@ def path_following(original_heading):
 
             # Computation of cost function
 
+            # Including the following terms
+            min_distance_to_obstacle = np.inf
+            max_deviation_from_path = 0.0
+
+            total_relative_distance = 0.0
+            total_gmm_cluster_size = 0.0
+
+            for i_gmm in range(n_gmm):
+                current_x = gmm_mean_matrix[0][i_gmm]
+                current_y = gmm_mean_matrix[1][i_gmm]
+                dwa_heading = original_heading
+                
+                # Dynamic calculation
+                dwa_x = current_x
+                dwa_y = current_y
+
+                for k1 in range(dwa_horizon_param):
+                    dwa_x -= t_interval * v * np.sin(dwa_heading)
+                    dwa_y += t_interval * v * np.cos(dwa_heading)
+
+                    dwa_heading += t_interval * a
+
+                # Clearance calculation
+                # Since it's not possible by now, it's set to 1.0
+                clearance = 1.0
+
+                if clearance < min_distance_to_obstacle: 
+                    min_distance_to_obstacle = clearance
+                
+                # Deviation calculation 
+                distance_to_path = np.inf
+
+                for k2 in range(min(len(planned_path) - 1, 19)):
+                    pose = planned_path[k2]
+
+                    error = linear_distance(
+                        dwa_x, pose.pose.position.x, dwa_y, pose.pose.position.y)
+
+                    if error < distance_to_path:
+                        distance_to_path = error
+                
+                if distance_to_path > max_deviation_from_path: 
+                    max_deviation_from_path = distance_to_path
+
+            # Summation of relative distance
+            sum_relative_distance = 0.0 
+            relative_distance_matrix
+
+            speed_diff = v - previous_v
+
+            # l_gmm and r_gmm. a and b used here
+            sum_cluster_size = gmm_covariance_matrix.sum()
+
+            # Calculation of cost function
+
+            cost_function = cost_function_calculation(min_distance_to_obstacle, max_deviation_from_path, sum_relative_distance, speed_diff, sum_cluster_size)
+
+            if cost_function < optimal_cost_function: 
+                optimal_cost_function = cost_function
+                
+                optimal_v = v
+                optimal_a = a
 
 
     if linear_distance(gmm_mean_matrix[0][0], goal_x, gmm_mean_matrix[1][0], goal_y) < 0.05:
@@ -363,6 +449,8 @@ def path_following(original_heading):
         rospy.loginfo('Path following finished successfully. ')
 
     robot_control(optimal_v, optimal_a)
+
+    previous_v = optimal_v
 
 
 def initial_rotation(original_heading):
@@ -560,17 +648,22 @@ def callback_costmap(data):
 
     costmap = data.data
 
+def callback_laser_scan(data): 
+    global laser_scan
+
+    laser_scan = data.ranges
+
 
 def control():
     r = rospy.Rate(2)
 
     while not rospy.is_shutdown():
-        # rospy.loginfo('running... ')
+        rospy.loginfo('running... ')
 
         start_time = time.time()
 
         if planned_path is None:
-            # rospy.loginfo('Waiting for path...')
+            rospy.loginfo('Waiting for path...')
             pass
 
         else:
@@ -583,7 +676,7 @@ def control():
 
         end_time = time.time()
 
-        # rospy.loginfo('Runtime of the program is ' + str(end_time - start_time))
+        rospy.loginfo('Runtime of the program is ' + str(end_time - start_time))
 
         r.sleep()
 
@@ -610,7 +703,12 @@ if __name__ == '__main__':
     sub_costmap = rospy.Subscriber(
         '/move_base/local_costmap/costmap', OccupancyGrid, callback_costmap)
 
+    sub_laser_scan = rospy.Subscriber('/scan', LaserScan, callback_laser_scan)
+
     control_thread = threading.Thread(target=control)
     control_thread.start()
+
+    calculation_thread = threading.Thread(target=control)
+    calculation_thread.start()
 
     rospy.spin()
