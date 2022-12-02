@@ -276,15 +276,21 @@ def cost_function_calculation(min_dis, max_dev, spd_diff, cls_rel_dis, cls_size)
 
 
 # Another cost funcion calculation function that compares multiple functions
+# 
+# Going to be worked on later
+
 # def refined_cost_function_calculation():
 #     (j_1, j_2, j_3, j_4) = 0.0
 
 
 #     return (j_1, j_2, j_3, j_4)
 
+# The path following function
+
+# It needs to be refined to be <<logically correct>>
 
 def path_following(original_heading): 
-    # Note: to use several kinds of cost function J.
+    # Note: a cost function is for a pair of speed and angular speed. 
 
     global path_following_finish, previous_v
 
@@ -313,8 +319,6 @@ def path_following(original_heading):
 
             total_relative_distance = 0.0
             total_gmm_cluster_size = 0.0
-
-            # The logic needs to be refined I think
 
             for i_gmm in range(n_gmm):
                 current_x = gmm_mean_matrix[0][i_gmm]
