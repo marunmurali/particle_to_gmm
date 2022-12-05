@@ -53,6 +53,9 @@ dwa_horizon_param = 10
 lidar_range_min = 0.16
 lidar_range_max = 8.0
 
+# Lidar data save rate: 
+lidar_step = 10
+
 # Storaged data
 amcl_pose = None
 
@@ -71,7 +74,7 @@ planned_path = None
 costmap = None
 
 # Control time interval
-t_interval = 0.1
+t_interval = 0.2
 
 # Odometry of the robot
 odom = Odometry()
@@ -91,11 +94,13 @@ final_rotation_finish = False
 stop_flag = False
 
 # Information of goal set in RViz
+goal = Pose()
+
 goal_x = 0.0
 goal_y = 0.0
 goal_z = 0.0
 goal_w = 0.0
-goal_heading = 0.0
+goal_heading_angle = 0.0
 
 # Center coordinates and relative distance
 gmm_mean_matrix = np.zeros((2, 10))
@@ -112,15 +117,18 @@ gmm_covariance_matrix = np.zeros((2, 10))
 pubCmd = rospy.Publisher('cmd_vel', Twist, queue_size=10)
 
 previous_v = 0.0
+previous_a = 0.0
 
 laser_scan = None
 
 # DWA cost function coefficients
-alpha_1 = 1.0
-alpha_2 = 1.0
-alpha_3 = 100.0
-alpha_4 = 1.0
-alpha_5 = 1.0
+alpha = np.zeros(6)
+alpha[0] = 1.0
+alpha[1] = 1.0
+alpha[2] = 1.0
+alpha[3] = 10.0
+alpha[4] = 1.0
+alpha[5] = 1.0
 
 
 # Methods
@@ -257,13 +265,16 @@ def robot_control(v, a):
     rospy.loginfo('a: ' + str(a))
     pubCmd.publish(cmd_vel_msg)
 
-def cost_function_calculation(min_dis, max_dev, spd_diff, cls_rel_dis, cls_size):
+def cost_function_calculation(dis_goal, min_dis_path, max_dev, spd_diff, cls_rel_dis, cls_size):
 
-    j_1 = alpha_1 * np.power(min_dis, 2)
-    j_2 = alpha_2 * np.power(max_dev, 2)
-    j_3 = alpha_3 * np.power(spd_diff, 2)
-    j_4 = alpha_4 * np.power(cls_rel_dis, 2)
-    j_5 = alpha_5 * np.power(cls_size, 2)
+    j = np.zeros(6)
+
+    j[0] = alpha[0] * np.power(dis_goal, 1) 
+    j[1] = alpha[1] * np.power(min_dis_path, 1)
+    j[2] = alpha[2] * np.power(max_dev, 1)
+    j[3] = alpha[3] * np.power(spd_diff, 2)
+    j[4] = alpha[4] * np.power(cls_rel_dis, 1)
+    j[5] = alpha[5] * np.power(cls_size, 1)
 
     # Printing the 5 items of cost function
     # rospy.loginfo('min distance: ' + str(j_1))
@@ -272,7 +283,7 @@ def cost_function_calculation(min_dis, max_dev, spd_diff, cls_rel_dis, cls_size)
     # rospy.loginfo('relative distance: ' + str(j_4))
     # rospy.loginfo('cluster size: ' + str(j_5))
 
-    return (j_1 + j_2 + j_3 + j_4 + j_5)
+    return np.sum(j)
 
 
 # Another cost funcion calculation function that compares multiple functions
@@ -292,18 +303,41 @@ def cost_function_calculation(min_dis, max_dev, spd_diff, cls_rel_dis, cls_size)
 def path_following(original_heading): 
     # Note: a cost function is for a pair of speed and angular speed. 
 
-    global path_following_finish, previous_v
+    path_following_start_time = time.time()
+    
+    global path_following_finish, previous_v, previous_a
 
     lidar_safety_flag = True
+    speed_flag = True
 
     (optimal_v, optimal_a) = (0.0, 0.0)
 
-    v_range = np.array([-0.25, -0.20, -0.15, -0.10, -0.05, 0.0, 0.05, 0.10, 0.15, 0.20, 0.25])
-    a_range = np.array([-0.5, -0.4, -0.3, -0.2, -0.1, 0.0, 0.1, 0.2, 0.3, 0.4, 0.5])
+    laser_scan_x = np.zeros((3, 360))
+    laser_scan_y = np.zeros((3, 360))
+
+    # v_range = np.array([-0.25, -0.20, -0.15, -0.10, -0.05, 0.0, 0.05, 0.10, 0.15, 0.20, 0.25])
+    # a_range = np.array([-0.5, -0.4, -0.3, -0.2, -0.1, 0.0, 0.1, 0.2, 0.3, 0.4, 0.5])
+
+    # Velocity space with dynamic constraints
+    v_range = np.array([-0.10, -0.08, -0.06, -0.04, -0.02, 0.0, 0.02, 0.04, 0.06, 0.08, 0.10]) + previous_v
+    a_range = np.array([-0.10, -0.08, -0.06, -0.04, -0.02, 0.0, 0.02, 0.04, 0.06, 0.08, 0.10]) + previous_a
+
 
     optimal_cost_function = np.inf
     
     # Is it possible to put lidar-related calculation here? 
+
+    for i_gmm in range(n_gmm):
+        current_x = gmm_mean_matrix[0][i_gmm]
+        current_y = gmm_mean_matrix[1][i_gmm]
+
+        for i in range(len(laser_scan)): 
+            laser_scan_theta = np.pi / 180.0 * (i + 1) + original_heading
+            laser_scan_x[i_gmm][i] = current_x - laser_scan[i] * np.sin(laser_scan_theta)
+            laser_scan_y[i_gmm][i] = current_y + laser_scan[i] * np.cos(laser_scan_theta)
+
+    lidar_calculation_finish_time = time.time()
+    rospy.loginfo('Lidar calculation time: ' + str(lidar_calculation_finish_time - path_following_start_time))
     
     for i in range(len(v_range)):
 
@@ -332,8 +366,8 @@ def path_following(original_heading):
                 # dwa_x = current_x
                 # dwa_y = current_y
 
-                dwa_local = Point(0.0, 0.0, 0.0)
-                dwa_heading_local = 0.0
+                # dwa_local = Point(0.0, 0.0, 0.0)
+                # dwa_heading_local = 0.0
 
                 for k1 in range(dwa_horizon_param):
                     # dwa_x -= t_interval * v * np.sin(dwa_heading)
@@ -343,36 +377,47 @@ def path_following(original_heading):
                     dwa.y += t_interval * v * np.cos(dwa_heading)
                     dwa_heading += t_interval * a
 
-                    dwa_local.x -= t_interval * v * np.sin(dwa_heading_local)
-                    dwa_local.y += t_interval * v * np.cos(dwa_heading_local)
-                    dwa_heading_local += t_interval * a
-
+                    # dwa_local.x -= t_interval * v * np.sin(dwa_heading_local)
+                    # dwa_local.y += t_interval * v * np.cos(dwa_heading_local)
+                    # dwa_heading_local += t_interval * a
+                
+                # Distance to goal calculation
+                distance_to_goal = linear_distance(goal.position.x, dwa.x, goal.position.y, dwa.y)
+                
                 # Clearance calculation
                 # Now I know how to calculate the minimal distance to obstacles. Good...
+                # min_distance_to_obstacle = np.inf
                 clearance = 0.0
 
                 # In local coordinate system
-                for k2 in range(len(laser_scan)): 
-                    laser_scan_theta = np.pi / 180.0 * (k2 + 1) 
-                    laser_scan_x = -laser_scan[k2] * np.sin(laser_scan_theta)
-                    laser_scan_y = laser_scan[k2] * np.cos(laser_scan_theta)
                     
                     # rospy.loginfo('dwa position: ' + str(linear_distance(0, dwa_local.x, 0, dwa_local.y)))
                     # rospy.loginfo('lidar position: ' + str(linear_distance(0, laser_scan_x, 0, laser_scan_y)))
 
-
-                    if linear_distance(0, dwa_local.x, 0, dwa_local.y) >= linear_distance(0, laser_scan_x, 0, laser_scan_y): 
-                        
-                        
-                        lidar_safety_flag = False
-                        rospy.loginfo('Constraint violated')
-                        clearance = np.inf
-                    else: 
-                        clearance = linear_distance(laser_scan_x, dwa_local.x, laser_scan_y, dwa_local.y)
-
-                    if clearance < min_distance_to_obstacle: 
-                        min_distance_to_obstacle = clearance
+                i_angle = round(atan2_customized(dwa.y - current_y, dwa.x - current_x) / lidar_step)
                 
+                # for i_scan in range(len(laser_scan)): 
+
+                #     if linear_distance(current_x, dwa.x, current_y, dwa.y) >= linear_distance(current_x, laser_scan_x[i_gmm][i_scan], current_y, laser_scan_y[i_gmm][i_scan]): 
+                        
+                #         lidar_safety_flag = False
+                #         rospy.loginfo('Constraint violated')
+                #         clearance = np.inf
+                #     else: 
+                #         clearance = linear_distance(laser_scan_x[i_gmm][i_scan], dwa.x, laser_scan_y[i_gmm][i_scan], dwa.y)
+
+                #     if clearance < min_distance_to_obstacle: 
+                #         min_distance_to_obstacle = clearance
+
+                if linear_distance(current_x, dwa.x, current_y, dwa.y) >= linear_distance(current_x, laser_scan_x[i_gmm][i_angle], current_y, laser_scan_y[i_gmm][i_angle]): 
+                    
+                    lidar_safety_flag = False
+                    rospy.loginfo('Constraint violated')
+                    clearance = np.inf
+                else: 
+                    clearance = linear_distance(laser_scan_x[i_gmm][i_angle], dwa.x, laser_scan_y[i_gmm][i_angle], dwa.y)
+
+                    
                 # Deviation calculation 
                 distance_to_path = np.inf
 
@@ -388,17 +433,22 @@ def path_following(original_heading):
                     max_deviation_from_path = distance_to_path
 
             # Summation of relative distance
-            sum_relative_distance = np.sum(relative_distance_matrix)
+            # sum_relative_distance = np.sum(relative_distance_matrix)
 
             speed_diff = v - previous_v
 
             # l_gmm and r_gmm. a and b used here
-            sum_cluster_size = gmm_covariance_matrix.sum()
+            # sum_cluster_size = np.sum(gmm_covariance_matrix)
 
             # Calculation of cost function
 
-            if lidar_safety_flag == True: 
-                cost_function = cost_function_calculation(min_distance_to_obstacle, max_deviation_from_path, speed_diff, sum_relative_distance, sum_cluster_size)
+            if (np.abs(v) > 0.26) or (np.abs(a) > 1.82): 
+                speed_flag = False 
+
+            if (lidar_safety_flag == True) and (speed_flag == True): 
+                # cost_function = cost_function_calculation(distance_to_goal, min_distance_to_obstacle, max_deviation_from_path, speed_diff, sum_relative_distance, sum_cluster_size)
+                cost_function = cost_function_calculation(distance_to_goal, 0.0, 0.0, speed_diff, 0.0, 0.0)
+
             else: 
                 cost_function = np.inf
 
@@ -415,8 +465,10 @@ def path_following(original_heading):
 
     robot_control(optimal_v, optimal_a)
 
-    previous_v = optimal_v
+    (previous_v, previous_a) = (optimal_v, optimal_a)
 
+    path_following_finish_time = time.time()
+    rospy.loginfo('Path following calculation time: ' + str(path_following_finish_time - lidar_calculation_finish_time))
 
 def initial_rotation(original_heading):
     # Inputs: original x, y and heading of the robot
@@ -434,7 +486,7 @@ def initial_rotation(original_heading):
     follow_heading = 0.0
 
     if len(planned_path) < 5:
-        follow_heading = goal_heading
+        follow_heading = goal_heading_angle
     else:
         follow_heading = atan2_customized(
             planned_path[4].pose.position.y - planned_path[0].pose.position.y, planned_path[4].pose.position.x - planned_path[0].pose.position.x)
@@ -464,7 +516,7 @@ def final_rotation(original_heading):
 
     (optimal_v, optimal_a) = (0.0, 0.0)
 
-    heading_difference = original_heading - goal_heading
+    heading_difference = original_heading - goal_heading_angle
 
     if heading_difference > np.pi:
         heading_difference = heading_difference - 2.0 * np.pi
@@ -494,10 +546,10 @@ def control_with_gmm():
 
     # pubError = rospy.Publisher('error', Point, queue_size=10)
 
-    original_v = odom.twist.twist.linear.x
+    # original_v = odom.twist.twist.linear.x
 
-    original_x = amcl_pose.pose.pose.position.x
-    original_y = amcl_pose.pose.pose.position.y
+    # original_x = amcl_pose.pose.pose.position.x
+    # original_y = amcl_pose.pose.pose.position.y
 
     original_z = amcl_pose.pose.pose.orientation.z
     original_w = amcl_pose.pose.pose.orientation.w
@@ -526,7 +578,6 @@ def control_with_gmm():
         initial_rotation(original_heading)
 
     elif path_following_finish is False:
-
         path_following(original_heading)
 
     elif final_rotation_finish is False:
@@ -590,8 +641,10 @@ def callback_path(data):
 
 def callback_goal(data):
     global initial_rotation_finish, path_following_finish, final_rotation_finish
+    global goal
+    global goal_x, goal_y, goal_heading_angle
 
-    global goal_x, goal_y, goal_heading
+    goal = data.pose
 
     goal_x = data.pose.position.x
     goal_y = data.pose.position.y
@@ -599,7 +652,7 @@ def callback_goal(data):
     goal_z = data.pose.orientation.z
     goal_w = data.pose.orientation.w
 
-    goal_heading = quaternion_to_rad(goal_z, goal_w)
+    goal_heading_angle = quaternion_to_rad(goal_z, goal_w)
 
     # rospy.loginfo('The goal is set. ')
 
@@ -616,13 +669,15 @@ def callback_costmap(data):
 def callback_laser_scan(data): 
     global laser_scan
 
-    laser_scan = data.ranges[::15]
+    # laser_scan = data.ranges[::15]
+
+    laser_scan = data.ranges[::lidar_step]
 
     # rospy.loginfo(len(laser_scan))
 
 
 def control():
-    r = rospy.Rate(2)
+    r = rospy.Rate(5)
 
     while not rospy.is_shutdown():
         rospy.loginfo('running... ')
@@ -643,7 +698,7 @@ def control():
 
         end_time = time.time()
 
-        rospy.loginfo('Runtime of the program is ' + str(end_time - start_time))
+        # rospy.loginfo('Runtime of the program is ' + str(end_time - start_time))
 
         r.sleep()
 
