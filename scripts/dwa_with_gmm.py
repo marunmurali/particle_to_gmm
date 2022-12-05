@@ -234,8 +234,8 @@ def gmm_process():
 
         gmm_info = True
 
-        for i in range(n_gmm): 
-            rospy.loginfo('weight of ' + str(i + 1) + 'th cluster: ' + str(gmm_weight_matrix[i]))
+        # for i in range(n_gmm): 
+        #     rospy.loginfo('weight of ' + str(i + 1) + 'th cluster: ' + str(gmm_weight_matrix[i]))
 
 
 def robot_control(v, a):
@@ -266,11 +266,11 @@ def cost_function_calculation(min_dis, max_dev, spd_diff, cls_rel_dis, cls_size)
     j_5 = alpha_5 * np.power(cls_size, 2)
 
     # Printing the 5 items of cost function
-    rospy.loginfo('min distance: ' + str(j_1))
-    rospy.loginfo('max deviation: ' + str(j_2))
-    rospy.loginfo('speed difference: ' + str(j_3))
-    rospy.loginfo('relative distance: ' + str(j_4))
-    rospy.loginfo('cluster size: ' + str(j_5))
+    # rospy.loginfo('min distance: ' + str(j_1))
+    # rospy.loginfo('max deviation: ' + str(j_2))
+    # rospy.loginfo('speed difference: ' + str(j_3))
+    # rospy.loginfo('relative distance: ' + str(j_4))
+    # rospy.loginfo('cluster size: ' + str(j_5))
 
     return (j_1 + j_2 + j_3 + j_4 + j_5)
 
@@ -303,6 +303,8 @@ def path_following(original_heading):
 
     optimal_cost_function = np.inf
     
+    # Is it possible to put lidar-related calculation here? 
+    
     for i in range(len(v_range)):
 
         v = v_range[i]
@@ -327,24 +329,22 @@ def path_following(original_heading):
                 
                 # Dynamic calculation
                 dwa = Point(current_x, current_y, 0)
-                dwa_x = current_x
-                dwa_y = current_y
+                # dwa_x = current_x
+                # dwa_y = current_y
 
                 dwa_local = Point(0.0, 0.0, 0.0)
                 dwa_heading_local = 0.0
 
                 for k1 in range(dwa_horizon_param):
-                    dwa_x -= t_interval * v * np.sin(dwa_heading)
-                    dwa_y += t_interval * v * np.cos(dwa_heading)
+                    # dwa_x -= t_interval * v * np.sin(dwa_heading)
+                    # dwa_y += t_interval * v * np.cos(dwa_heading)
 
                     dwa.x -= t_interval * v * np.sin(dwa_heading)
                     dwa.y += t_interval * v * np.cos(dwa_heading)
-
                     dwa_heading += t_interval * a
 
-                    dwa_local.x -= t_interval * v * np.sin(dwa_heading)
-                    dwa_local.y += t_interval * v * np.cos(dwa_heading)
-
+                    dwa_local.x -= t_interval * v * np.sin(dwa_heading_local)
+                    dwa_local.y += t_interval * v * np.cos(dwa_heading_local)
                     dwa_heading_local += t_interval * a
 
                 # Clearance calculation
@@ -355,13 +355,15 @@ def path_following(original_heading):
                 for k2 in range(len(laser_scan)): 
                     laser_scan_theta = np.pi / 180.0 * (k2 + 1) 
                     laser_scan_x = -laser_scan[k2] * np.sin(laser_scan_theta)
-                    laser_scan_y = laser_scan[k2] * np.sin(laser_scan_theta)
+                    laser_scan_y = laser_scan[k2] * np.cos(laser_scan_theta)
                     
-                    rospy.loginfo('dwa position: ' + str(linear_distance(0, dwa_local.x, 0, dwa_local.y)))
-                    rospy.loginfo('lidar position: ' + str(linear_distance(0, laser_scan_x, 0, laser_scan_y)))
+                    # rospy.loginfo('dwa position: ' + str(linear_distance(0, dwa_local.x, 0, dwa_local.y)))
+                    # rospy.loginfo('lidar position: ' + str(linear_distance(0, laser_scan_x, 0, laser_scan_y)))
 
 
                     if linear_distance(0, dwa_local.x, 0, dwa_local.y) >= linear_distance(0, laser_scan_x, 0, laser_scan_y): 
+                        
+                        
                         lidar_safety_flag = False
                         rospy.loginfo('Constraint violated')
                         clearance = np.inf
@@ -377,7 +379,7 @@ def path_following(original_heading):
                 for k2 in range(min(len(planned_path) - 1, 19)):
                     pose = planned_path[k2]
 
-                    error = linear_distance(dwa_x, pose.pose.position.x, dwa_y, pose.pose.position.y)
+                    error = linear_distance(dwa.x, pose.pose.position.x, dwa.y, pose.pose.position.y)
 
                     if error < distance_to_path:
                         distance_to_path = error
@@ -406,7 +408,7 @@ def path_following(original_heading):
                 optimal_v = v
                 optimal_a = a
 
-
+    # How to determine if the navigation is over? Now the method is not correct. By AMCL position? 
     if linear_distance(gmm_mean_matrix[0][0], goal_x, gmm_mean_matrix[1][0], goal_y) < 0.05:
         path_following_finish = True
         rospy.loginfo('Path following finished successfully. ')
@@ -507,8 +509,8 @@ def control_with_gmm():
 
     # original_angular = odom.twist.twist.angular.z
 
-    optimal_v = 0.0
-    optimal_a = 0.0
+    # optimal_v = 0.0
+    # optimal_a = 0.0
 
     # rospy.loginfo(str(original_a))
 
@@ -535,6 +537,8 @@ def control_with_gmm():
 
 
 def control_with_no_gmm():
+    rospy.loginfo('Controlling the robot without AMCL result. ')
+
     robot_control(0.01, 0)
 
 
@@ -612,7 +616,7 @@ def callback_costmap(data):
 def callback_laser_scan(data): 
     global laser_scan
 
-    laser_scan = data.ranges[::5]
+    laser_scan = data.ranges[::15]
 
     # rospy.loginfo(len(laser_scan))
 
