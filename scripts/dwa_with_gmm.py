@@ -3,9 +3,9 @@
 
 # Definition: A DWA controller that can navigate the robot to the goal set in RViz while avoiding obstacles in the environment
 #
-# Date of programming: 2022/7/7 ~ 20xx/xx/xx
+# Date of programming: 2022/7/7 ~ 2022/12/5
 #
-# Current progress: 
+# Current progress: C
 # A (working with a solid theoretical base) / B (seems to be working) / C (working with problems)
 # F (totally not working) / N (not completed)
 
@@ -277,11 +277,12 @@ def cost_function_calculation(dis_goal, min_dis_path, max_dev, spd_diff, cls_rel
     j[5] = alpha[5] * np.power(cls_size, 1)
 
     # Printing the 5 items of cost function
-    # rospy.loginfo('min distance: ' + str(j_1))
-    # rospy.loginfo('max deviation: ' + str(j_2))
-    # rospy.loginfo('speed difference: ' + str(j_3))
-    # rospy.loginfo('relative distance: ' + str(j_4))
-    # rospy.loginfo('cluster size: ' + str(j_5))
+    # rospy.loginfo('distance to goal')
+    # rospy.loginfo('min distance: ' + str(j[1]))
+    # rospy.loginfo('max deviation: ' + str(j[2]]))
+    # rospy.loginfo('speed difference: ' + str(j[3]]))
+    # rospy.loginfo('relative distance: ' + str(j[4]]))
+    # rospy.loginfo('cluster size: ' + str(j[5]]))
 
     return np.sum(j)
 
@@ -312,8 +313,8 @@ def path_following(original_heading):
 
     (optimal_v, optimal_a) = (0.0, 0.0)
 
-    laser_scan_x = np.zeros((3, 360))
-    laser_scan_y = np.zeros((3, 360))
+    laser_scan_x = np.zeros((10, 360))
+    laser_scan_y = np.zeros((10, 360))
 
     # v_range = np.array([-0.25, -0.20, -0.15, -0.10, -0.05, 0.0, 0.05, 0.10, 0.15, 0.20, 0.25])
     # a_range = np.array([-0.5, -0.4, -0.3, -0.2, -0.1, 0.0, 0.1, 0.2, 0.3, 0.4, 0.5])
@@ -356,7 +357,7 @@ def path_following(original_heading):
             total_relative_distance = 0.0
             total_gmm_cluster_size = 0.0
 
-            for i_gmm in range(n_gmm):
+            for i_gmm in range(n_gmm): 
                 current_x = gmm_mean_matrix[0][i_gmm]
                 current_y = gmm_mean_matrix[1][i_gmm]
                 dwa_heading = original_heading
@@ -394,7 +395,7 @@ def path_following(original_heading):
                     # rospy.loginfo('dwa position: ' + str(linear_distance(0, dwa_local.x, 0, dwa_local.y)))
                     # rospy.loginfo('lidar position: ' + str(linear_distance(0, laser_scan_x, 0, laser_scan_y)))
 
-                i_angle = round(atan2_customized(dwa.y - current_y, dwa.x - current_x) / lidar_step)
+                i_angle = np.floor(atan2_customized(dwa.y - current_y, dwa.x - current_x) / lidar_step)
                 
                 # for i_scan in range(len(laser_scan)): 
 
@@ -412,25 +413,31 @@ def path_following(original_heading):
                 if linear_distance(current_x, dwa.x, current_y, dwa.y) >= linear_distance(current_x, laser_scan_x[i_gmm][i_angle], current_y, laser_scan_y[i_gmm][i_angle]): 
                     
                     lidar_safety_flag = False
-                    rospy.loginfo('Constraint violated')
+                    # rospy.loginfo('Constraint violated')
                     clearance = np.inf
                 else: 
-                    clearance = linear_distance(laser_scan_x[i_gmm][i_angle], dwa.x, laser_scan_y[i_gmm][i_angle], dwa.y)
+                    clearance = min(linear_distance(laser_scan_x[i_gmm][i_angle], dwa.x, laser_scan_y[i_gmm][i_angle], dwa.y), 
+                        linear_distance(laser_scan_x[i_gmm][i_angle + 1], dwa.x, laser_scan_y[i_gmm][i_angle + 1], dwa.y))
 
                     
                 # Deviation calculation 
                 distance_to_path = np.inf
 
-                for k2 in range(min(len(planned_path) - 1, 19)):
-                    pose = planned_path[k2]
+                if len(planned_path) < 2: 
+                    distance_to_path = 0.0
 
-                    error = linear_distance(dwa.x, pose.pose.position.x, dwa.y, pose.pose.position.y)
+                else: 
 
-                    if error < distance_to_path:
-                        distance_to_path = error
+                    for k2 in range(min(len(planned_path), 29)):
+                        pose = planned_path[k2]
+
+                        error = linear_distance(dwa.x, pose.pose.position.x, dwa.y, pose.pose.position.y)
+
+                        if error < distance_to_path:
+                            distance_to_path = error
                 
-                if distance_to_path > max_deviation_from_path: 
-                    max_deviation_from_path = distance_to_path
+                    if distance_to_path > max_deviation_from_path: 
+                        max_deviation_from_path = distance_to_path
 
             # Summation of relative distance
             # sum_relative_distance = np.sum(relative_distance_matrix)
@@ -446,9 +453,10 @@ def path_following(original_heading):
                 speed_flag = False 
 
             if (lidar_safety_flag == True) and (speed_flag == True): 
-                # cost_function = cost_function_calculation(distance_to_goal, min_distance_to_obstacle, max_deviation_from_path, speed_diff, sum_relative_distance, sum_cluster_size)
-                cost_function = cost_function_calculation(distance_to_goal, 0.0, 0.0, speed_diff, 0.0, 0.0)
 
+                # It's been tested with distance to goal, deviation from path and speed difference. 
+                # cost_function = cost_function_calculation(distance_to_goal, min_distance_to_obstacle, max_deviation_from_path, speed_diff, sum_relative_distance, sum_cluster_size)
+                cost_function = cost_function_calculation(distance_to_goal, clearance, max_deviation_from_path, speed_diff, 0.0, 0.0)
             else: 
                 cost_function = np.inf
 
@@ -459,7 +467,7 @@ def path_following(original_heading):
                 optimal_a = a
 
     # How to determine if the navigation is over? Now the method is not correct. By AMCL position? 
-    if linear_distance(gmm_mean_matrix[0][0], goal_x, gmm_mean_matrix[1][0], goal_y) < 0.05:
+    if linear_distance(gmm_mean_matrix[0][0], goal_x, gmm_mean_matrix[1][0], goal_y) < 0.1:
         path_following_finish = True
         rospy.loginfo('Path following finished successfully. ')
 
@@ -468,7 +476,8 @@ def path_following(original_heading):
     (previous_v, previous_a) = (optimal_v, optimal_a)
 
     path_following_finish_time = time.time()
-    rospy.loginfo('Path following calculation time: ' + str(path_following_finish_time - lidar_calculation_finish_time))
+    # rospy.loginfo('Path following calculation time: ' + str(path_following_finish_time - lidar_calculation_finish_time))
+    
 
 def initial_rotation(original_heading):
     # Inputs: original x, y and heading of the robot
