@@ -73,6 +73,9 @@ planned_path = None
 # Costmap array
 costmap = None
 
+# Data of lidar scan
+laser_scan = None
+
 # Control time interval
 t_interval = 0.2
 
@@ -91,7 +94,7 @@ initial_rotation_finish = False
 path_following_finish = False
 final_rotation_finish = False
 
-stop_flag = False
+# stop_flag = False
 
 # Information of goal set in RViz
 goal = Pose()
@@ -107,19 +110,18 @@ gmm_mean_matrix = np.zeros((2, 10))
 gmm_weight_matrix = np.zeros(10)
 gmm_ellipse_direction = np.zeros(10)
 relative_distance_matrix = np.zeros((10, 10))
-distance_to_path = np.zeros(10)
-distance_to_obstacle = np.zeros(10)
+# distance_to_path = np.zeros(10)
+# distance_to_obstacle = np.zeros(10)
 
 # How to save the covariance of gmm?
 # Is that in x, y direction?
-gmm_covariance_matrix = np.zeros((2, 10))
+gmm_covariance_matrix = np.zeros((2, 10)) 
 
-pubCmd = rospy.Publisher('cmd_vel', Twist, queue_size=10)
+cost_function = np.zeros((2, 10))
 
+# Previous speed and angular speed
 previous_v = 0.0
 previous_a = 0.0
-
-laser_scan = None
 
 # DWA cost function coefficients
 alpha = np.zeros(6)
@@ -129,6 +131,9 @@ alpha[2] = 1.0
 alpha[3] = 10.0
 alpha[4] = 1.0
 alpha[5] = 1.0
+
+# Speed command publisher
+pubCmd = rospy.Publisher('cmd_vel', Twist, queue_size=10)
 
 
 # Methods
@@ -201,7 +206,7 @@ to_numpy_f64 = partial(_multiarray_to_numpy, float, np.float64)
 def gmm_process():
     global gmm_info
 
-    if gmm_mean is None or gmm_covariance is None or gmm_weight is None:
+    if (gmm_mean is None) or (gmm_covariance is None) or (gmm_weight is None):
         pass
 
     else:
