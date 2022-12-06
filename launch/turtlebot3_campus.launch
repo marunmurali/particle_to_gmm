@@ -33,7 +33,7 @@
     <arg name="use_sim_time" value="true"/>
     <arg name="headless" value="$(arg headless)"/>
     <!-- <arg name="world_name" value="$(find turtlebot3_gazebo)/worlds/campus2.world"/> -->
-    <arg name="world_name" value="$(find particle_to_gmm)/support/turtlebot3_simulations/turtlebot3_gazebo/worlds/campus2.world"/>
+    <arg name="world_name" value="$(find particle_to_gmm)/support/worlds/campus2.world"/>
   </include>
   
   <!-- <param name="robot_description" command="$(find xacro)/xacro $(find turtlebot3_description)/urdf/turtlebot3_$(arg model).urdf.xacro" /> -->
