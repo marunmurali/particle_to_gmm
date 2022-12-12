@@ -53,8 +53,8 @@ dwa_horizon_param = 10
 lidar_range_min = 0.16
 lidar_range_max = 8.0
 
-# Lidar data save rate: 
-lidar_step = 10
+# Lidar data step length (for saving computational time): 
+lidar_step = 5
 
 # Storaged data
 amcl_pose = None
@@ -286,23 +286,10 @@ def cost_function_calculation(dis_goal, min_dis_path, max_dev, spd_diff, cls_rel
     return np.sum(j)
 
 
-# Another cost funcion calculation function that compares multiple functions
-# 
-# Going to be worked on later
-
-# def refined_cost_function_calculation():
-#     (j_1, j_2, j_3, j_4) = 0.0
-
-
-#     return (j_1, j_2, j_3, j_4)
-
 # The path following function
-
 # It needs to be refined to be <<logically correct>>
 
 def path_following(original_heading): 
-    # Note: a cost function is for a pair of speed and angular speed. 
-
     path_following_start_time = time.time()
     
     global path_following_finish, previous_v, previous_a
@@ -478,10 +465,6 @@ def path_following(original_heading):
     
 
 def initial_rotation(original_heading):
-    # Inputs: original x, y and heading of the robot
-    # Outputs: an angular command
-    # To instruct the robot to turn to (approximately) the direction of the start of the path
-
     global initial_rotation_finish
 
     (optimal_v, optimal_a) = (0.0, 0.0)

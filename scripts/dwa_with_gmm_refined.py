@@ -53,7 +53,7 @@ dwa_horizon_param = 10
 lidar_range_min = 0.16
 lidar_range_max = 8.0
 
-# Lidar data save rate: 
+# Lidar data step length (for saving computational time): 
 lidar_step = 10
 
 # Storaged data
@@ -99,10 +99,10 @@ final_rotation_finish = False
 # Information of goal set in RViz
 goal = Pose()
 
-goal_x = 0.0
-goal_y = 0.0
-goal_z = 0.0
-goal_w = 0.0
+# goal_x = 0.0
+# goal_y = 0.0
+# goal_z = 0.0
+# goal_w = 0.0
 goal_heading_angle = 0.0
 
 # Center coordinates and relative distance
@@ -110,14 +110,14 @@ gmm_mean_matrix = np.zeros((2, 10))
 gmm_weight_matrix = np.zeros(10)
 gmm_ellipse_direction = np.zeros(10)
 relative_distance_matrix = np.zeros((10, 10))
-# distance_to_path = np.zeros(10)
-# distance_to_obstacle = np.zeros(10)
+distance_to_path = np.zeros(10)
+distance_to_obstacle = np.zeros(10)
 
 # How to save the covariance of gmm?
 # Is that in x, y direction?
 gmm_covariance_matrix = np.zeros((2, 10)) 
 
-cost_function = np.zeros((2, 10))
+cost_function = np.zeros(10)
 
 # Previous speed and angular speed
 previous_v = 0.0
@@ -140,7 +140,7 @@ pubCmd = rospy.Publisher('cmd_vel', Twist, queue_size=10)
 
 # Conversion from original atan2 to the angle system we are using
 
-
+# Increasing counter-clockwise, 0 facing upwards
 def atan2_customized(y, x):
     rad = math.atan2(y, x) - np.pi / 2.0
 
@@ -276,36 +276,19 @@ def cost_function_calculation(dis_goal, min_dis_path, max_dev, spd_diff, cls_rel
     j[4] = alpha[4] * np.power(cls_rel_dis, 1)
     j[5] = alpha[5] * np.power(cls_size, 1)
 
-    # Printing the 5 items of cost function
-    # rospy.loginfo('distance to goal')
+    # Outputting the 5 items of cost function
+    # rospy.loginfo('distance to goal' + str(j[0]))
     # rospy.loginfo('min distance: ' + str(j[1]))
-    # rospy.loginfo('max deviation: ' + str(j[2]]))
-    # rospy.loginfo('speed difference: ' + str(j[3]]))
-    # rospy.loginfo('relative distance: ' + str(j[4]]))
-    # rospy.loginfo('cluster size: ' + str(j[5]]))
+    # rospy.loginfo('max deviation: ' + str(j[2]))
+    # rospy.loginfo('speed difference: ' + str(j[3]))
+    # rospy.loginfo('relative distance: ' + str(j[4]))
+    # rospy.loginfo('cluster size: ' + str(j[5]))
 
     return np.sum(j)
 
 
-# Another cost funcion calculation function that compares multiple functions
-# 
-# Going to be worked on later
-
-# def refined_cost_function_calculation():
-#     (j_1, j_2, j_3, j_4) = 0.0
-
-
-#     return (j_1, j_2, j_3, j_4)
-
 # The path following function
-
-# It needs to be refined to be <<logically correct>>
-
-def path_following(original_heading): 
-    # Note: a cost function is for a pair of speed and angular speed. 
-
-    path_following_start_time = time.time()
-    
+def path_following(original_heading):     
     global path_following_finish, previous_v, previous_a
 
     lidar_safety_flag = True
@@ -322,13 +305,14 @@ def path_following(original_heading):
     # Velocity space with dynamic constraints
     v_range = np.array([-0.10, -0.08, -0.06, -0.04, -0.02, 0.0, 0.02, 0.04, 0.06, 0.08, 0.10]) + previous_v
     a_range = np.array([-0.10, -0.08, -0.06, -0.04, -0.02, 0.0, 0.02, 0.04, 0.06, 0.08, 0.10]) + previous_a
-
-
-    optimal_cost_function = np.inf
     
     # Is it possible to put lidar-related calculation here? 
 
     for i_gmm in range(n_gmm):
+        # path_following_start_time = time.time()
+
+        optimal_cost_function = np.inf
+
         current_x = gmm_mean_matrix[0][i_gmm]
         current_y = gmm_mean_matrix[1][i_gmm]
 
@@ -337,8 +321,8 @@ def path_following(original_heading):
             laser_scan_x[i_gmm][i] = current_x - laser_scan[i] * np.sin(laser_scan_theta)
             laser_scan_y[i_gmm][i] = current_y + laser_scan[i] * np.cos(laser_scan_theta)
 
-    lidar_calculation_finish_time = time.time()
-    rospy.loginfo('Lidar calculation time: ' + str(lidar_calculation_finish_time - path_following_start_time))
+        # lidar_calculation_finish_time = time.time()
+        # rospy.loginfo('Lidar calculation time: ' + str(lidar_calculation_finish_time - path_following_start_time))
     
     for i in range(len(v_range)):
 
