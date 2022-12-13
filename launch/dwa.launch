@@ -52,7 +52,7 @@
   <node pkg="particle_to_gmm" type="particle_to_gmm.py" name="particle_to_gmm" output="screen">
   </node>
 
-  <node pkg="particle_to_gmm" type="dwa_with_gmm.py" name="dwa_with_gmm" output="screen">
+  <node pkg="particle_to_gmm" type="dwa_with_gmm_refined.py" name="dwa_with_gmm_refined" output="screen">
   </node> 
 
 </launch>

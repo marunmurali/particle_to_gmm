@@ -1,8 +1,8 @@
 <launch>
   <!-- Arguments -->
   <arg name="model" default="$(env TURTLEBOT3_MODEL)" doc="model type [burger, waffle, waffle_pi]"/>
-  <arg name="cmd_vel_topic" default="/cmd_vel" />
-  <!-- <arg name="cmd_vel_topic" default="/cmd_vel_move_base" /> -->
+  <!-- <arg name="cmd_vel_topic" default="/cmd_vel" /> -->
+  <arg name="cmd_vel_topic" default="/cmd_vel_move_base" />
   <arg name="odom_topic" default="odom" />
   <arg name="move_forward_only" default="false"/>
 
