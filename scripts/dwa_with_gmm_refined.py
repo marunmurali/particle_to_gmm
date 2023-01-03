@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # coding: utf-8
 
-# Definition: A refined DWA controller with a better logic
+# Definition: A refined DWA controller with comparison of multiple settings of costs function
 #
 # Date of programming: 2022/12/5～20XX/XX/XX
 #
@@ -77,7 +77,6 @@ costmap = None
 laser_scan = None
 laser_scan_coordinate = np.zeros((2, 360))
 
-
 # Control time interval
 t_interval = 0.2
 
@@ -101,10 +100,6 @@ final_rotation_finish = False
 # Information of goal set in RViz
 goal = Pose()
 
-# goal_x = 0.0
-# goal_y = 0.0
-# goal_z = 0.0
-# goal_w = 0.0
 goal_heading_angle = 0.0
 
 # Center coordinates and relative distance
@@ -243,10 +238,7 @@ def gmm_process():
                 relative_distance_matrix[i][j] = linear_distance(gmm_mean_matrix[0][i], gmm_mean_matrix[0][j], gmm_mean_matrix[1][i], gmm_mean_matrix[1][j])
 
         gmm_info = True
-
-        # for i in range(n_gmm): 
-        #     rospy.loginfo('weight of ' + str(i + 1) + 'th cluster: ' + str(gmm_weight_matrix[i]))
-
+        
 
 def robot_control(v, a):
     # Initialize command publisher
@@ -278,7 +270,6 @@ def cost_function_calculation(dis_goal, min_dis_path, max_dev, spd_diff, cls_rel
     j[4] = alpha[4] * np.power(cls_rel_dis, 1)
     j[5] = alpha[5] * np.power(cls_size, 1)
 
-    # Outputting the 5 items of cost function
     # rospy.loginfo('distance to goal' + str(j[0]))
     # rospy.loginfo('min distance: ' + str(j[1]))
     # rospy.loginfo('max deviation: ' + str(j[2]))
@@ -303,9 +294,6 @@ def path_following(original_heading):
 
     laser_scan_x = np.zeros((10, 360))
     laser_scan_y = np.zeros((10, 360))
-
-    # v_range = np.array([-0.25, -0.20, -0.15, -0.10, -0.05, 0.0, 0.05, 0.10, 0.15, 0.20, 0.25])
-    # a_range = np.array([-0.5, -0.4, -0.3, -0.2, -0.1, 0.0, 0.1, 0.2, 0.3, 0.4, 0.5])
 
     # Velocity space with dynamic constraints
     v_range = np.array([-0.10, -0.08, -0.06, -0.04, -0.02, 0.0, 0.02, 0.04, 0.06, 0.08, 0.10]) + previous_v
@@ -344,17 +332,12 @@ def path_following(original_heading):
 
                 # Kinematic calculation
                 dwa = Point(current_x, current_y, 0)
-                # dwa_x = current_x
-                # dwa_y = current_y
                 dwa_heading = original_heading
 
                 dwa_local = Point(0.0, 0.0, 0.0)
                 dwa_heading_local = 0.0
 
                 for k1 in range(dwa_horizon_param):
-                    # dwa_x -= t_interval * v * np.sin(dwa_heading)
-                    # dwa_y += t_interval * v * np.cos(dwa_heading)
-
                     dwa.x -= t_interval * v * np.sin(dwa_heading)
                     dwa.y += t_interval * v * np.cos(dwa_heading)
                     dwa_heading += t_interval * a
@@ -367,7 +350,6 @@ def path_following(original_heading):
                 distance_to_goal = linear_distance(goal.position.x, dwa.x, goal.position.y, dwa.y)
                 
                 # Clearance calculation
-                # Now I know how to calculate the minimal distance to obstacles. Good...
                 # min_distance_to_obstacle = np.inf
                 clearance = 0.0
 
@@ -377,30 +359,6 @@ def path_following(original_heading):
                 if i_angle == len(laser_scan): 
                     i_angle = 0
 
-                # rospy.loginfo(str(i_angle))
-                
-                # # for i_scan in range(len(laser_scan)): 
-
-                # #     if linear_distance(current_x, dwa.x, current_y, dwa.y) >= linear_distance(current_x, laser_scan_x[i_gmm][i_scan], current_y, laser_scan_y[i_gmm][i_scan]): 
-                        
-                # #         lidar_safety_flag = False
-                # #         rospy.loginfo('Constraint violated')
-                # #         clearance = np.inf
-                # #     else: 
-                # #         clearance = linear_distance(laser_scan_x[i_gmm][i_scan], dwa.x, laser_scan_y[i_gmm][i_scan], dwa.y)
-
-                # #     if clearance < min_distance_to_obstacle: 
-                # #         min_distance_to_obstacle = clearance
-
-                # if linear_distance(0, dwa_local.x, 0, dwa_local.y) >= linear_distance(0, laser_scan_coordinate[0][i_angle], 0, laser_scan_coordinate[1][i_angle]): 
-                    
-                #     lidar_safety_flag = False
-                #     # rospy.loginfo('Constraint violated')
-                #     clearance = np.inf
-                # else: 
-                #     clearance = min(linear_distance(laser_scan_x[i_gmm][i_angle], dwa.x, laser_scan_y[i_gmm][i_angle], dwa.y), 
-                #         linear_distance(laser_scan_x[i_gmm][i_angle + 1], dwa.x, laser_scan_y[i_gmm][i_angle + 1], dwa.y))
-         
                 # Deviation calculation 
                 distance_to_path = np.inf
 
@@ -433,8 +391,6 @@ def path_following(original_heading):
                     speed_flag = False 
 
                 if (lidar_safety_flag == True) and (speed_flag == True): 
-                    # It's been tested with distance to goal, deviation from path and speed difference. 
-                    # cost_function = cost_function_calculation(distance_to_goal, min_distance_to_obstacle, max_deviation_from_path, speed_diff, sum_relative_distance, sum_cluster_size)
                     cost_function = cost_function_calculation(distance_to_goal, clearance, max_deviation_from_path, speed_diff, 0.0, 0.0)
                 else: 
                     cost_function = np.inf
@@ -449,7 +405,8 @@ def path_following(original_heading):
         final_optimal_v = optimal_v[i] * gmm_weight_matrix[i]
         final_optimal_a = optimal_a[i] * gmm_weight_matrix[i]
 
-    # How to determine if the navigation is over? Now the method is not correct. By AMCL position? 
+    # How to determine if the navigation is over? 
+    # I think AMCL position is better. 
     for i in range(n_gmm): 
         if linear_distance(gmm_mean_matrix[0][i], goal.position.x, gmm_mean_matrix[1][i], goal.position.y) < 0.01: 
             path_following_finish = True
@@ -467,10 +424,6 @@ def path_following(original_heading):
     
 
 def initial_rotation(original_heading):
-    # Inputs: original x, y and heading of the robot
-    # Outputs: an angular command
-    # To instruct the robot to turn to (approximately) the direction of the start of the path
-
     global initial_rotation_finish
 
     (optimal_v, optimal_a) = (0.0, 0.0)
@@ -535,39 +488,12 @@ def final_rotation(original_heading):
 def control_with_gmm():
 
     # Global variables
-    # global odom, gmm_mean, gmm_covariance, gmm_weight, amcl_pose
-    # global goal_x, goal_y, goal_z, goal_w
     global initial_rotation_finish, path_following_finish, final_rotation_finish
     # global costmap
-
-    # pubError = rospy.Publisher('error', Point, queue_size=10)
-
-    # original_v = odom.twist.twist.linear.x
-
-    # original_x = amcl_pose.pose.pose.position.x
-    # original_y = amcl_pose.pose.pose.position.y
 
     original_z = amcl_pose.pose.pose.orientation.z
     original_w = amcl_pose.pose.pose.orientation.w
     original_heading = quaternion_to_rad(original_z, original_w)
-
-    # rospy.loginfo('x: ' + str(original_x))
-    # rospy.loginfo('y: ' + str(original_y))
-    # rospy.loginfo('heading: ' + str(original_heading))
-
-    # original_angular = odom.twist.twist.angular.z
-
-    # optimal_v = 0.0
-    # optimal_a = 0.0
-
-    # rospy.loginfo(str(original_a))
-
-    # We should change the sample space according to the robot's current velocity and acceleration limit
-    # It can't be found in the document, but estimation can be made like a max acceleration of 1.0 m/(s^2)
-    # Now it's given up
-
-    # original_v = odom.twist.twist.linear.x
-    # original_a = odom.twist.twist.angular.z
 
     if initial_rotation_finish is False:
         # initial_rotation(original_x, original_y, original_heading)
@@ -587,17 +513,6 @@ def control_with_no_gmm():
     rospy.loginfo('Controlling the robot without AMCL result. ')
 
     robot_control(0.01, 0)
-
-
-# def print_path():
-#     global planned_path
-
-#     rospy.loginfo(str(len(planned_path)))
-
-#     for i, pose in enumerate(planned_path):
-#         rospy.loginfo('Point ' + str(i + 1))
-#         rospy.loginfo('x = ' + str(pose.pose.position.x))
-#         rospy.loginfo('y = ' + str(pose.pose.position.y))
 
 
 # Callback methods
