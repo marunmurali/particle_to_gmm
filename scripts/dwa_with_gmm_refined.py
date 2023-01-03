@@ -450,8 +450,10 @@ def initial_rotation(original_heading):
 
     if heading_difference > 0.1:
         optimal_a = -0.5
+
     elif heading_difference < -0.1:
         optimal_a = 0.5
+        
     else:
         initial_rotation_finish = True
         rospy.loginfo('Initial rotation finished. ')
