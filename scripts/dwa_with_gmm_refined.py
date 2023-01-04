@@ -20,7 +20,6 @@ import time
 import math
 import numpy as np
 from numpy import linalg
-# from sklearn import mixture
 from functools import partial
 # import matplotlib as mpl
 
@@ -136,9 +135,8 @@ pubCmd = rospy.Publisher('cmd_vel', Twist, queue_size=10)
 # Methods
 
 # Conversion from original atan2 to the angle system we are using
-
-# Increasing counter-clockwise, 0 facing upwards
-def atan2_customized(y, x):
+def atan2_customized(y, x): 
+    # Increasing counter-clockwise, 0 facing upwards
     rad = math.atan2(y, x) - np.pi / 2.0
 
     if rad < -np.pi:
@@ -401,6 +399,7 @@ def path_following(original_heading):
                     optimal_v[i_gmm] = v
                     optimal_a[i_gmm] = a
 
+    # Now it's the weighted average of optimal output
     for i in range(n_gmm):
         final_optimal_v = optimal_v[i] * gmm_weight_matrix[i]
         final_optimal_a = optimal_a[i] * gmm_weight_matrix[i]
@@ -554,18 +553,11 @@ def callback_path(data):
 
 def callback_goal(data):
     global initial_rotation_finish, path_following_finish, final_rotation_finish
-    global goal
-    global goal_x, goal_y, goal_heading_angle
+    global goal, goal_heading_angle
 
     goal = data.pose
 
-    goal_x = data.pose.position.x
-    goal_y = data.pose.position.y
-
-    goal_z = data.pose.orientation.z
-    goal_w = data.pose.orientation.w
-
-    goal_heading_angle = quaternion_to_rad(goal_z, goal_w)
+    goal_heading_angle = quaternion_to_rad(data.pose.orientation.z, data.pose.orientation.w)
 
     # rospy.loginfo('The goal is set. ')
 
@@ -579,10 +571,9 @@ def callback_costmap(data):
 
     costmap = data.data
 
+
 def callback_laser_scan(data): 
     global laser_scan
-
-    # laser_scan = data.ranges[::15]
 
     laser_scan = data.ranges[::lidar_step]
 
