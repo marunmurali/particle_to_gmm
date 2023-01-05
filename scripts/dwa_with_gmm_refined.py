@@ -3,7 +3,7 @@
 
 # Definition: A refined DWA controller with comparison of multiple settings of costs function
 #
-# Date of programming: 2022/12/5～20XX/XX/XX
+# Date of programming: 2022/12/5～2023/1/10
 #
 # Current progress: N
 # A (working with a solid theoretical base) / B (seems to be working) / C (working with problems)
@@ -19,7 +19,7 @@ import rospy
 import time
 import math
 import numpy as np
-from numpy import linalg
+# from numpy import linalg
 from functools import partial
 # import matplotlib as mpl
 
@@ -195,6 +195,7 @@ def _multiarray_to_numpy(pytype, dtype, multiarray):
 
 to_multiarray_f64 = partial(_numpy_to_multiarray, Float64MultiArray)
 
+
 to_numpy_f64 = partial(_multiarray_to_numpy, float, np.float64)
 
 
@@ -209,18 +210,19 @@ def gmm_process():
 
             # rospy.loginfo(str(i) + str(weight))
 
-            eig_val, eig_vec = linalg.eigh(covar)
+            eig_val, eig_vec = np.linalg.eigh(covar)
 
             v = 2.0 * np.sqrt(5.991) * np.sqrt(eig_val)
 
             # Eigenvectors of covariance matrix
-            u = eig_vec[0] / linalg.norm(eig_vec[0])
+            u = eig_vec[0] / np.linalg.norm(eig_vec[0])
 
             angle = np.arctan(u[1] / u[0]) + 3 * np.pi / 2
 
             if angle > 2 * np.pi:
                 angle = angle - 2 * np.pi
 
+            # Mean value of gmm distribution
             gmm_mean_matrix[0][i] = m[0]
             gmm_mean_matrix[1][i] = m[1]
 
