@@ -4,7 +4,6 @@
 # Definition: A refined DWA controller with comparison of multiple settings of costs function
 #
 # Date of programming: 2022/12/5～2023/1/10
-#
 # Current progress: N
 # A (working with a solid theoretical base) / B (seems to be working) / C (working with problems)
 # F (totally not working) / N (on progress)
@@ -19,20 +18,11 @@ import rospy
 import time
 import math
 import numpy as np
-# from numpy import linalg
 from functools import partial
-# import matplotlib as mpl
+import matplotlib as mpl
 
 # - ROS libraries
-# from std_msgs.msg import String
-from std_msgs.msg import MultiArrayDimension
-# from std_msgs.msg import (Float32MultiArray, Float64MultiArray,
-#                           Int8MultiArray, Int16MultiArray,
-#                           Int32MultiArray, Int64MultiArray,
-#                           UInt8MultiArray, UInt16MultiArray,
-#                           UInt32MultiArray, UInt64MultiArray)
-from std_msgs.msg import Float64MultiArray
-
+from std_msgs.msg import (MultiArrayDimension, Float64MultiArray)
 from geometry_msgs.msg import (
     Twist, Point, Pose, PoseStamped, PoseWithCovarianceStamped, PoseArray)
 from nav_msgs.msg import (Odometry, Path, OccupancyGrid)
@@ -41,85 +31,85 @@ from sensor_msgs.msg import LaserScan
 
 # Global variables
 
-# ROS parameters
+# - ROS parameters
 gmm_flag = rospy.get_param('gmm')
 n_gmm = rospy.get_param('num_of_gmm_dist')
 
-# DWA parameters
+# - DWA parameters
 dwa_horizon_param = 10
 
-# Spec of lidar
+# - Spec of lidar
 lidar_range_min = 0.16
 lidar_range_max = 8.0
 
-# Lidar data step length (for saving computational time): 
+# - Lidar data step length (for saving computational time):
 lidar_step = 5
 
+# - Control time interval
+t_interval = 0.2
+
+# - If AMCL is processed to GMM and control based on GMM can be done
+gmm_info = False
+
 # Storaged data
+
+# - AMCL pose
 amcl_pose = None
 
-# GMM parameters
+# - GMM parameters
 gmm_mean = None
 gmm_covariance = None
 gmm_weight = None
 
-# Mean Square Error
+# - Mean Square Error
 MSE_array = None
 
-# Planned path by navigation node
+# - Planned path by navigation node
 planned_path = None
 
-# Costmap array
+# - Costmap array
 costmap = None
 
-# Data of lidar scan
+# - Data of lidar scan
 laser_scan = None
 laser_scan_coordinate = np.zeros((2, 360))
 
-# Control time interval
-t_interval = 0.2
-
-# Odometry of the robot
+# - Odometry of the robot
 odom = Odometry()
 
-# Error message (for plotting)
+# - Error message (for plotting)
 # error_msg = Point()
 
-# If AMCL is processed to GMM and control based on GMM can be done
-gmm_info = False
-
-# Control states
-# initial_rotation_finish = True
+# - Control states
 initial_rotation_finish = False
 path_following_finish = False
 final_rotation_finish = False
-
 # stop_flag = False
 
-# Information of goal set in RViz
+# - Information of goal set in RViz
 goal = Pose()
-
 goal_heading_angle = 0.0
 
-# Center coordinates and relative distance
+# - Center coordinates and relative distance
 gmm_mean_matrix = np.zeros((2, 10))
 gmm_weight_matrix = np.zeros(10)
 gmm_ellipse_direction = np.zeros(10)
 relative_distance_matrix = np.zeros((10, 10))
+
 distance_to_path = np.zeros(10)
 distance_to_obstacle = np.zeros(10)
 
+gmm_covariance_matrix = np.zeros((2, 10))
 # How to save the covariance of gmm?
 # Is that in x, y direction?
-gmm_covariance_matrix = np.zeros((2, 10)) 
 
 optimal_cost_function = np.zeros(10)
 
-# Previous speed and angular speed
+# - Previous speed and angular speed
 previous_v = 0.0
 previous_a = 0.0
 
-# DWA cost function coefficients
+# - DWA cost function coefficients
 alpha = np.zeros(6)
 alpha[0] = 10.0
 alpha[1] = -1.0
@@ -128,14 +118,14 @@ alpha[3] = 100.0
 alpha[4] = 1.0
 alpha[5] = 1.0
 
-# Speed command publisher
+# - Speed command publisher
 pubCmd = rospy.Publisher('cmd_vel', Twist, queue_size=10)
 
 
 # Methods
 
 # Conversion from original atan2 to the angle system we are using
-def atan2_customized(y, x): 
+def atan2_customized(y, x):
     # Increasing counter-clockwise, 0 facing upwards
     rad = math.atan2(y, x) - np.pi / 2.0
 
@@ -235,10 +225,11 @@ def gmm_process():
         # Calculation of relative distance of GMM clusters
         for i in range(n_gmm):
             for j in range(1, n_gmm):
-                relative_distance_matrix[i][j] = linear_distance(gmm_mean_matrix[0][i], gmm_mean_matrix[0][j], gmm_mean_matrix[1][i], gmm_mean_matrix[1][j])
+                relative_distance_matrix[i][j] = linear_distance(
+                    gmm_mean_matrix[0][i], gmm_mean_matrix[0][j], gmm_mean_matrix[1][i], gmm_mean_matrix[1][j])
 
         gmm_info = True
-        
+
 
 def robot_control(v, a):
     # Initialize command publisher
@@ -259,11 +250,12 @@ def robot_control(v, a):
     rospy.loginfo('a: ' + str(a))
     pubCmd.publish(cmd_vel_msg)
 
+
 def cost_function_calculation(dis_goal, min_dis_path, max_dev, spd_diff, cls_rel_dis, cls_size):
 
     j = np.zeros(6)
 
-    j[0] = alpha[0] * np.power(dis_goal, 1) 
+    j[0] = alpha[0] * np.power(dis_goal, 1)
     j[1] = alpha[1] * np.power(min_dis_path, 1)
     j[2] = alpha[2] * np.power(max_dev, 1)
     j[3] = alpha[3] * np.power(spd_diff, 2)
@@ -281,7 +273,7 @@ def cost_function_calculation(dis_goal, min_dis_path, max_dev, spd_diff, cls_rel
 
 
 # The path following function
-def path_following(original_heading):     
+def path_following(original_heading):
     global path_following_finish, previous_v, previous_a, optimal_cost_function
 
     lidar_safety_flag = True
@@ -296,16 +288,18 @@ def path_following(original_heading):
     laser_scan_y = np.zeros((10, 360))
 
     # Velocity space with dynamic constraints
-    v_range = np.array([-0.10, -0.08, -0.06, -0.04, -0.02, 0.0, 0.02, 0.04, 0.06, 0.08, 0.10]) + previous_v
-    a_range = np.array([-0.10, -0.08, -0.06, -0.04, -0.02, 0.0, 0.02, 0.04, 0.06, 0.08, 0.10]) + previous_a
-    
-    for i in range(len(laser_scan)): 
+    v_range = np.array([-0.10, -0.08, -0.06, -0.04, -0.02,
+                       0.0, 0.02, 0.04, 0.06, 0.08, 0.10]) + previous_v
+    a_range = np.array([-0.10, -0.08, -0.06, -0.04, -0.02,
+                       0.0, 0.02, 0.04, 0.06, 0.08, 0.10]) + previous_a
+
+    for i in range(len(laser_scan)):
         laser_scan_theta = np.pi / 180.0 * i
         laser_scan_coordinate[0][i] = -laser_scan[i] * np.sin(laser_scan_theta)
         laser_scan_coordinate[1][i] = laser_scan[i] * np.cos(laser_scan_theta)
 
-    # Why convert lidar data to global coordinate? It's unnecessary. 
-    
+    # Why convert lidar data to global coordinate? It's unnecessary.
+
     for i in range(len(v_range)):
 
         v = v_range[i]
@@ -317,12 +311,12 @@ def path_following(original_heading):
             # Computation of cost function
             speed_diff = v - previous_v
 
-            for i_gmm in range(n_gmm): 
+            for i_gmm in range(n_gmm):
                 optimal_cost_function[i_gmm] = np.inf
-                
+
                 current_x = gmm_mean_matrix[0][i_gmm]
                 current_y = gmm_mean_matrix[1][i_gmm]
-                
+
                 # Including the following terms
                 min_distance_to_obstacle = np.inf
                 max_deviation_from_path = 0.0
@@ -345,59 +339,62 @@ def path_following(original_heading):
                     dwa_local.x -= t_interval * v * np.sin(dwa_heading_local)
                     dwa_local.y += t_interval * v * np.cos(dwa_heading_local)
                     dwa_heading_local += t_interval * a
-                
+
                 # Distance to goal calculation
-                distance_to_goal = linear_distance(goal.position.x, dwa.x, goal.position.y, dwa.y)
-                
+                distance_to_goal = linear_distance(
+                    goal.position.x, dwa.x, goal.position.y, dwa.y)
+
                 # Clearance calculation
                 # min_distance_to_obstacle = np.inf
                 clearance = 0.0
 
-                i_angle = np.round(atan2_customized(dwa_local.y, dwa_local.x) / lidar_step)
+                i_angle = np.round(atan2_customized(
+                    dwa_local.y, dwa_local.x) / lidar_step)
 
                 # Limitation processing
-                if i_angle == len(laser_scan): 
+                if i_angle == len(laser_scan):
                     i_angle = 0
 
-                # Deviation calculation 
+                # Deviation calculation
                 distance_to_path = np.inf
 
-                if len(planned_path) < 2: 
+                if len(planned_path) < 2:
                     distance_to_path = 0.0
 
-                else: 
+                else:
 
                     for k2 in range(min(len(planned_path), 29)):
                         pose = planned_path[k2]
 
-                        error = linear_distance(dwa.x, pose.pose.position.x, dwa.y, pose.pose.position.y)
+                        error = linear_distance(
+                            dwa.x, pose.pose.position.x, dwa.y, pose.pose.position.y)
 
                         if error < distance_to_path:
                             distance_to_path = error
-                
-                    if distance_to_path > max_deviation_from_path: 
+
+                    if distance_to_path > max_deviation_from_path:
                         max_deviation_from_path = distance_to_path
 
                 # Summation of relative distance
                 # sum_relative_distance = np.sum(relative_distance_matrix)
-
 
                 # l_gmm and r_gmm. a and b used here
                 # sum_cluster_size = np.sum(gmm_covariance_matrix)
 
                 # Calculation of cost function
 
-                if (np.abs(v) > 0.26) or (np.abs(a) > 1.82): 
-                    speed_flag = False 
+                if (np.abs(v) > 0.26) or (np.abs(a) > 1.82):
+                    speed_flag = False
 
-                if (lidar_safety_flag == True) and (speed_flag == True): 
-                    cost_function = cost_function_calculation(distance_to_goal, clearance, max_deviation_from_path, speed_diff, 0.0, 0.0)
-                else: 
+                if (lidar_safety_flag == True) and (speed_flag == True):
+                    cost_function = cost_function_calculation(
+                        distance_to_goal, clearance, max_deviation_from_path, speed_diff, 0.0, 0.0)
+                else:
                     cost_function = np.inf
 
-                if cost_function < optimal_cost_function[i_gmm]: 
+                if cost_function < optimal_cost_function[i_gmm]:
                     optimal_cost_function[i_gmm] = cost_function
-                
+
                     optimal_v[i_gmm] = v
                     optimal_a[i_gmm] = a
 
@@ -406,23 +403,23 @@ def path_following(original_heading):
         final_optimal_v = optimal_v[i] * gmm_weight_matrix[i]
         final_optimal_a = optimal_a[i] * gmm_weight_matrix[i]
 
-    # How to determine if the navigation is over? 
-    # I think AMCL position is better. 
-    for i in range(n_gmm): 
-        if linear_distance(gmm_mean_matrix[0][i], goal.position.x, gmm_mean_matrix[1][i], goal.position.y) < 0.01: 
+    # How to determine if the navigation is over?
+    # I think AMCL position is better.
+    for i in range(n_gmm):
+        if linear_distance(gmm_mean_matrix[0][i], goal.position.x, gmm_mean_matrix[1][i], goal.position.y) < 0.01:
             path_following_finish = True
             rospy.loginfo('Path following finished successfully. ')
 
-    if path_following_finish is False: 
+    if path_following_finish is False:
         robot_control(final_optimal_v, final_optimal_a)
-    else: 
+    else:
         pass
 
     (previous_v, previous_a) = (final_optimal_v, final_optimal_a)
 
     path_following_finish_time = time.time()
     # rospy.loginfo('Path following calculation time: ' + str(path_following_finish_time - lidar_calculation_finish_time))
-    
+
 
 def initial_rotation(original_heading):
     global initial_rotation_finish
@@ -454,7 +451,7 @@ def initial_rotation(original_heading):
 
     elif heading_difference < -0.1:
         optimal_a = 0.5
-        
+
     else:
         initial_rotation_finish = True
         rospy.loginfo('Initial rotation finished. ')
@@ -559,7 +556,8 @@ def callback_goal(data):
 
     goal = data.pose
 
-    goal_heading_angle = quaternion_to_rad(data.pose.orientation.z, data.pose.orientation.w)
+    goal_heading_angle = quaternion_to_rad(
+        data.pose.orientation.z, data.pose.orientation.w)
 
     # rospy.loginfo('The goal is set. ')
 
@@ -574,7 +572,7 @@ def callback_costmap(data):
     costmap = data.data
 
 
-def callback_laser_scan(data): 
+def callback_laser_scan(data):
     global laser_scan
 
     laser_scan = data.ranges[::lidar_step]
