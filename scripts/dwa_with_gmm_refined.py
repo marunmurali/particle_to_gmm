@@ -7,10 +7,13 @@
 # Current progress: N
 # A (working with a solid theoretical base) / B (seems to be working) / C (working with problems)
 # F (totally not working) / N (on progress)
+# 20230109 Question: shall we use a single set of start and goal points? Or shall we manually set a simple path?  
+
+# Can we define a path in the global variables? 
 
 # Libraries
 
-# - Basics
+## Basics
 
 # import random
 import threading
@@ -21,7 +24,7 @@ import numpy as np
 from functools import partial
 import matplotlib as mpl
 
-# - ROS libraries
+## ROS libraries
 from std_msgs.msg import (MultiArrayDimension, Float64MultiArray)
 from geometry_msgs.msg import (
     Twist, Point, Pose, PoseStamped, PoseWithCovarianceStamped, PoseArray)
@@ -31,66 +34,67 @@ from sensor_msgs.msg import LaserScan
 
 # Global variables
 
-# - ROS parameters
+## ROS parameters
 gmm_flag = rospy.get_param('gmm')
 n_gmm = rospy.get_param('num_of_gmm_dist')
 
-# - DWA parameters
+## DWA parameters
 dwa_horizon_param = 10
 
-# - Spec of lidar
+## Spec of lidar
 lidar_range_min = 0.16
 lidar_range_max = 8.0
 
-# - Lidar data step length (for saving computational time):
+## Lidar data step length (for saving computational time):
 lidar_step = 5
 
-# - Control time interval
+## Control time interval
 t_interval = 0.2
 
-# - If AMCL is processed to GMM and control based on GMM can be done
+## If AMCL is processed to GMM and control based on GMM can be done
 gmm_info = False
 
 # Storaged data
 
-# - AMCL pose
+## AMCL pose
 amcl_pose = None
 
-# - GMM parameters
+## GMM parameters
 gmm_mean = None
 gmm_covariance = None
 gmm_weight = None
 
-# - Mean Square Error
+## Mean Square Error
 MSE_array = None
 
-# - Planned path by navigation node
+## Planned path by navigation node
 planned_path = None
 
-# - Costmap array
+## Costmap array
 costmap = None
 
-# - Data of lidar scan
+## Data of lidar scan
 laser_scan = None
 laser_scan_coordinate = np.zeros((2, 360))
 
-# - Odometry of the robot
+## Odometry of the robot
 odom = Odometry()
+gazebo_odom = Odometry()
 
-# - Error message (for plotting)
+## Error message (for plotting)
 # error_msg = Point()
 
-# - Control states
+## Control states
 initial_rotation_finish = False
 path_following_finish = False
 final_rotation_finish = False
 # stop_flag = False
 
-# - Information of goal set in RViz
+## Information of goal set in RViz
 goal = Pose()
 goal_heading_angle = 0.0
 
-# - Center coordinates and relative distance
+## Center coordinates and relative distance
 gmm_mean_matrix = np.zeros((2, 10))
 gmm_weight_matrix = np.zeros(10)
 gmm_ellipse_direction = np.zeros(10)
@@ -103,13 +107,13 @@ gmm_covariance_matrix = np.zeros((2, 10))
 # How to save the covariance of gmm?
 # Is that in x, y direction?
 
-optimal_cost_function = np.zeros(10)
+cost_function_gmm_cluster = np.zeros(10)
 
-# - Previous speed and angular speed
+## Previous speed and angular speed
 previous_v = 0.0
 previous_a = 0.0
 
-# - DWA cost function coefficients
+## DWA cost function coefficients
 alpha = np.zeros(6)
 alpha[0] = 10.0
 alpha[1] = -1.0
@@ -118,7 +122,7 @@ alpha[3] = 100.0
 alpha[4] = 1.0
 alpha[5] = 1.0
 
-# - Speed command publisher
+## Speed command publisher
 pubCmd = rospy.Publisher('cmd_vel', Twist, queue_size=10)
 
 
@@ -251,19 +255,25 @@ def robot_control(v, a):
     pubCmd.publish(cmd_vel_msg)
 
 
-def cost_function_calculation(dis_goal, min_dis_path, max_dev, spd_diff, cls_rel_dis, cls_size):
+def cost_function_calculation(dis_goal, min_dis_obs, max_dev, spd_diff, cls_rel_dis, cls_size):
 
     j = np.zeros(6)
 
+    # Distance to the goal
     j[0] = alpha[0] * np.power(dis_goal, 1)
-    j[1] = alpha[1] * np.power(min_dis_path, 1)
+    # Minimal distance to the obstacle
+    j[1] = alpha[1] * np.power(min_dis_obs, 1)
+    # Max deviation from the path
     j[2] = alpha[2] * np.power(max_dev, 1)
+    # Speed difference
     j[3] = alpha[3] * np.power(spd_diff, 2)
+    # Relative distance of clusters * Not included now
     j[4] = alpha[4] * np.power(cls_rel_dis, 1)
+    # Cluster size * Not included now
     j[5] = alpha[5] * np.power(cls_size, 1)
 
     # rospy.loginfo('distance to goal' + str(j[0]))
-    # rospy.loginfo('min distance: ' + str(j[1]))
+    # rospy.loginfo('min distance to obstacle: ' + str(j[1]))
     # rospy.loginfo('max deviation: ' + str(j[2]))
     # rospy.loginfo('speed difference: ' + str(j[3]))
     # rospy.loginfo('relative distance: ' + str(j[4]))
@@ -274,7 +284,7 @@ def cost_function_calculation(dis_goal, min_dis_path, max_dev, spd_diff, cls_rel
 
 # The path following function
 def path_following(original_heading):
-    global path_following_finish, previous_v, previous_a, optimal_cost_function
+    global path_following_finish, previous_v, previous_a, cost_function_gmm_cluster
 
     lidar_safety_flag = True
     speed_flag = True
@@ -312,7 +322,7 @@ def path_following(original_heading):
             speed_diff = v - previous_v
 
             for i_gmm in range(n_gmm):
-                optimal_cost_function[i_gmm] = np.inf
+                cost_function_gmm_cluster[i_gmm] = np.inf
 
                 current_x = gmm_mean_matrix[0][i_gmm]
                 current_y = gmm_mean_matrix[1][i_gmm]
@@ -392,8 +402,8 @@ def path_following(original_heading):
                 else:
                     cost_function = np.inf
 
-                if cost_function < optimal_cost_function[i_gmm]:
-                    optimal_cost_function[i_gmm] = cost_function
+                if cost_function < cost_function_gmm_cluster[i_gmm]:
+                    cost_function_gmm_cluster[i_gmm] = cost_function
 
                     optimal_v[i_gmm] = v
                     optimal_a[i_gmm] = a
@@ -539,12 +549,18 @@ def callback_amcl_pose(data):
     # gmm_process()
 
 
-def callback_odom(data):
-    global odom
-    odom = data
+# def callback_odom(data):
+#     global odom
+#     odom = data
 
 
-# What shall we do here?
+def callback_gazebo_odom(data):
+    global gazebo_odom
+    gazebo_odom = data
+
+
+# What shall we do here? 
+# Or we send the path as topic. 
 def callback_path(data):
     global planned_path
     planned_path = data.poses
@@ -593,7 +609,6 @@ def control():
             pass
 
         else:
-            # if gmm_mean is None or gmm_covariance is None or gmm_weight is None:
             if gmm_info is False:
                 control_with_no_gmm()
 
@@ -619,7 +634,9 @@ if __name__ == '__main__':
     sub_amcl_pose = rospy.Subscriber(
         'amcl_pose', PoseWithCovarianceStamped, callback_amcl_pose)
 
-    sub_odom = rospy.Subscriber('odom', Odometry, callback_odom)
+    # sub_odom = rospy.Subscriber('odom', Odometry, callback_odom)
+
+    sub_gazebo_odom = rospy.Subscriber('gazebo_odom', Odometry, callback_gazebo_odom)
 
     sub_path = rospy.Subscriber('move_base/NavfnROS/plan', Path, callback_path)
 

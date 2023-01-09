@@ -76,7 +76,7 @@ from nav_msgs.msg import Odometry
 
 # Global variables
 
-# ROS Parameters
+## ROS Parameters
 gmm_flag = rospy.get_param('gmm')
 
 orient_x = rospy.get_param('orient_x')
@@ -89,30 +89,52 @@ b = orient_y - k * orient_x
 
 orient_ref = -np.arctan2(goal_x - orient_x, goal_y - orient_y)
 
-# Feedback gains of the state feedback controller
+## Robot position ground truth
+gazebo_odom = Odometry()
+
+gazebo_odom.pose.pose.position.x = orient_x
+gazebo_odom.pose.pose.position.y = orient_y
+
+## Feedback gains of the state feedback controller
 # k1 = -1.0
 k2 = -0.50
 k3 = -0.10
 k4 = -0.10
 
+## GMM and odometry data
 gmm_mean = None
 gmm_covariance = None
 gmm_weight = None
+
 odom = Odometry()
-error_msg = Point()
+
+gazebo_odom = Odometry()
 
 stop_flag = 0
 
-start_time = None
+start_time = 0.0
 
 mse_list = []
-mse_calculation = 0
+mse_calculation = False
 
 # For corridor (later to be changed to parameter)
 # count_time = 50.0
 
 # For campus
 count_time = 80.0
+
+## Error data
+error_msg = Point()
+
+# # New error data 
+# error_msg_new = np.zeros(10000, 3)
+# # linear, angular, time
+
+# error_msg_pos = 0
+
+# previous_time = 0.0
+
+error_mse = 0.0
 
 # Methods
 
@@ -195,13 +217,25 @@ def get_err_orient(theta):
 
     return err
 
+def linear_distance(x1, x2, y1, y2):
+    d = np.sqrt(np.power(x1 - x2, 2) + np.power(y1 - y2, 2))
+
+    return d
+
 # Controller method
 def control_with_gmm(means, covariances, weights, amcl_pose, odom): 
+
+    global error_msg, error_mse
+
+    # global error_msg_new, error_msg_pos, previous_time
+
+    global mse_list, mse_calculation, start_time, count_time
+
+    global gazebo_odom
 
     pubCmd = rospy.Publisher('cmd_vel', Twist, queue_size=10)
     pubError = rospy.Publisher('error', Point, queue_size=10)
 
-    global error_msg
 
     linear_cmd = 0.0
     angular_cmd = 0.0
@@ -293,8 +327,8 @@ def control_with_gmm(means, covariances, weights, amcl_pose, odom):
 
         # rospy.loginfo('controlling w/o gmm')
 
-    xForError = amcl_pose.pose.pose.position.x
-    yForError = amcl_pose.pose.pose.position.y
+    xForError = gazebo_odom.pose.pose.position.x
+    yForError = gazebo_odom.pose.pose.position.y
 
     position_error = get_err_position(xForError, yForError)
 
@@ -346,18 +380,18 @@ def control_with_gmm(means, covariances, weights, amcl_pose, odom):
 
     # For calculation of MSE
 
-    global mse_list, mse_calculation, start_time, count_time
-
     if mse_calculation == 0:
         time_elapsed = rospy.get_time() - start_time
-        if time_elapsed >= count_time: 
-        # if stop_flag == 1: 
-            mse_calculation = 1
+        # if time_elapsed >= count_time: 
+        if (stop_flag == 1) and (mse_calculation == False): 
+            mse_calculation = True
 
-            mse = np.mean(mse_list)
+            error_mse = np.mean(mse_list)
 
-            rospy.loginfo('MSE = ' + str(mse))
-        mse_list.append(np.power(position_error, 2))
+            rospy.loginfo('MSE = ' + str(error_mse))
+
+        if time_elapsed > 1.0: 
+            mse_list.append(np.power(position_error, 2))
 
     
 def control_with_no_info(): 
@@ -368,11 +402,11 @@ def control_with_no_info():
 
     global error_msg, odom
 
-    xForError = odom.pose.pose.position.x
-    yForError = odom.pose.pose.position.y
+    # xForError = odom.pose.pose.position.x
+    # yForError = odom.pose.pose.position.y
 
-    error_msg.x = get_err_position(xForError, yForError)
-    error_msg.y = 0.0
+    # error_msg.x = get_err_position(xForError, yForError)
+    # error_msg.y = 0.0
 
     cmd_vel_msg = Twist()
 
@@ -380,7 +414,7 @@ def control_with_no_info():
     
     pubCmd.publish(cmd_vel_msg)
 
-    pubError.publish(error_msg)
+    # pubError.publish(error_msg)
 
 
 # Callback methods
@@ -430,6 +464,12 @@ def callback_odom(data):
     global odom
     odom = data
 
+
+def callback_gazebo_odom(data): 
+    global gazebo_odom
+    gazebo_odom = data
+ 
+
 def control(): 
     r = rospy.Rate(10)
     while not rospy.is_shutdown(): 
@@ -456,6 +496,7 @@ if __name__ == '__main__':
 
     sub_amcl_pose = rospy.Subscriber('amcl_pose', PoseWithCovarianceStamped, callback_amcl_pose)
     sub_odom = rospy.Subscriber('odom', Odometry, callback_odom)
+    sub_gazebo_odom = rospy.Subscriber('gazebo_odom', Odometry, callback_gazebo_odom)
 
     pub = threading.Thread(target=control)
     pub.start()
