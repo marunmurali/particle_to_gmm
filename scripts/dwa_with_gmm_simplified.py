@@ -7,9 +7,14 @@
 # Current progress: N
 # A (working with a solid theoretical base) / B (seems to be working) / C (working with problems)
 # F (totally not working) / N (on progress)
-# 20230109 Question: shall we use a single set of start and goal points? Or shall we manually set a simple path?  
 
+# 20230109 Question: shall we use a single set of start and goal points? Or shall we manually set a simple path?  
 # Can we define a path in the global variables? 
+# 20230110 Asnwer: I am doing that. 
+
+# Clearance calculation is still the problem. 
+
+# Remember to ... what? 
 
 # Libraries
 
