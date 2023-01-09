@@ -84,6 +84,8 @@ orient_y = rospy.get_param('orient_y')
 goal_x = rospy.get_param('goal_x')
 goal_y = rospy.get_param('goal_y')
 
+no_gmm_speed = rospy.get_param('no_gmm_speed')
+
 k = (goal_y - orient_y) / (goal_x - orient_x)
 b = orient_y - k * orient_x
 
@@ -110,7 +112,7 @@ odom = Odometry()
 
 gazebo_odom = Odometry()
 
-stop_flag = 0
+stop_flag = False
 
 start_time = 0.0
 
@@ -288,22 +290,27 @@ def control_with_gmm(means, covariances, weights, amcl_pose, odom):
             
             cmd3 = k3 * l1
 
-            if np.abs(cmd3) > 0.25: 
-                cmd3 = cmd3 * 0.25 / np.abs(cmd3)
+            # if np.abs(cmd3) > 0.25: 
+            #     cmd3 = cmd3 * 0.25 / np.abs(cmd3)
 
             cmd4 = k4 * l2
 
-            if np.abs(cmd4) > 0.25: 
-                cmd4 = cmd4 * 0.25 / np.abs(cmd4)
+            # if np.abs(cmd4) > 0.25: 
+            #     cmd4 = cmd4 * 0.25 / np.abs(cmd4)
 
             angular_cmd += weight * (k1 * x_err + k2 * orientation_err) 
 
             linear_cmd += weight * (cmd3 + cmd4)
 
-        if linear_cmd < -0.10: 
-            linear_cmd = -0.10
+        linear_cmd += 0.25
+
+        if linear_cmd < 0.15: 
+            linear_cmd = 0.15
+
+        if linear_cmd > 0.25: 
+            linear_cmd = 0.25
            
-        # rospy.loginfo('controlling with gmm')
+        # rospy.loginfo('speed: ' + str(linear_cmd))
         
     else: 
         # Path following without GMM
@@ -323,7 +330,7 @@ def control_with_gmm(means, covariances, weights, amcl_pose, odom):
         angular_cmd = k1 * x_err + k2 * orientation_err
         # angular_cmd = k1 * x_err + k2 * orientation_err + 0.2 * (np.random.random(1) - 0.5)
 
-        linear_cmd = -0.05
+        linear_cmd = no_gmm_speed
 
         # rospy.loginfo('controlling w/o gmm')
 
@@ -339,9 +346,6 @@ def control_with_gmm(means, covariances, weights, amcl_pose, odom):
 
     orientation_error = get_err_orient(theta_error)
 
-    error_msg.x = position_error
-    error_msg.y = orientation_error
-
     # rospy.loginfo('linear error: ' + str(error_msg.x))
     # rospy.loginfo('angular error: ' + str(error_msg.y))
 
@@ -356,7 +360,7 @@ def control_with_gmm(means, covariances, weights, amcl_pose, odom):
 
     cmd_vel_msg = Twist()
 
-    cmd_vel_msg.linear.x = 0.25 + linear_cmd
+    cmd_vel_msg.linear.x = linear_cmd
     # cmd_vel_msg.linear.x = 0.20 + linear_cmd + 0.1 * (np.random.random(1) - 0.5)
         
     cmd_vel_msg.linear.y = 0.0    
@@ -368,12 +372,15 @@ def control_with_gmm(means, covariances, weights, amcl_pose, odom):
 
     global stop_flag
 
-    if dist_goal < 0.1: 
-        stop_flag = 1
+    if dist_goal < 0.2: 
+        stop_flag = True
 
-    if stop_flag == 1: 
+    if stop_flag is True: 
         cmd_vel_msg.linear.x = 0.0
         cmd_vel_msg.angular.z = 0.0
+    
+    error_msg.x = position_error
+    error_msg.y = cmd_vel_msg.linear.x
     
     pubCmd.publish(cmd_vel_msg)
     pubError.publish(error_msg)
@@ -389,6 +396,8 @@ def control_with_gmm(means, covariances, weights, amcl_pose, odom):
             error_mse = np.mean(mse_list)
 
             rospy.loginfo('MSE = ' + str(error_mse))
+
+            rospy.loginfo('Travel time = ' + str(time_elapsed) + "s")
 
         if time_elapsed > 1.0: 
             mse_list.append(np.power(position_error, 2))
@@ -507,5 +516,6 @@ if __name__ == '__main__':
         rospy.loginfo('running with GMM')
     else: 
         rospy.loginfo('running without GMM')
+        rospy.loginfo('speed: ' + str(no_gmm_speed))
 
     rospy.spin()

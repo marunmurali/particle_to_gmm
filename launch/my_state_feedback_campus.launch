@@ -19,10 +19,11 @@
   <arg name="orient_y" default="-45.5"/>
   <arg name="goal_x" default="29.5"/>
   <arg name="goal_y" default="-87"/> -->
-
   
   <arg name="gmm" default="true"/>
   <!-- <arg name="gmm" default="false"/> -->
+
+  <arg name="no_gmm_speed" default="0.25"/>
   
   <!-- <param name="using_gmm_param" value="$(arg using_gmm)"/> -->
   <param name="orient_x" value="$(arg orient_x)"/>
@@ -33,15 +34,17 @@
 
   <param name="gmm" value="$(arg gmm)"/>
 
-  <node name="error_plot"
-        pkg="rqt_plot"
-        type="rqt_plot"
-        args="/error/x" />
+  <param name="no_gmm_speed" value="$(arg no_gmm_speed)"/>
 
-    <!-- <node name="error_plot"
+  <!-- <node name="error_plot"
         pkg="rqt_plot"
         type="rqt_plot"
-        args="/error/x /error/y" /> -->
+        args="/error/x" /> -->
+
+  <node name="error_plot"
+      pkg="rqt_plot"
+      type="rqt_plot"
+      args="/error/x /error/y" />
 
   <!-- <node pkg="particle_to_gmm" type="gmm_visualizer.py" name="gmm_visualizer" output="screen">
   </node> -->
