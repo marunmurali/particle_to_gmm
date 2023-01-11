@@ -132,10 +132,10 @@ previous_a = 0.0
 ## DWA cost function coefficients
 alpha = np.zeros(6)
 alpha[0] = 1.0
-alpha[1] = 1.0
+alpha[1] = -0.1
 alpha[2] = 1.0
 alpha[3] = 1.0
-alpha[4] = 1.0
+alpha[4] = 100.0
 alpha[5] = 1.0
 
 ## Speed command publisher
@@ -345,7 +345,7 @@ def path_following(original_heading):
             a = a_range[j]
 
             # Computation of cost function
-            speed_diff = v - previous_v
+            speed_diff = np.power(v - previous_v, 2)
 
             for i_gmm in range(n_gmm):
                 cost_function_gmm_cluster[i_gmm] = np.inf
@@ -428,7 +428,9 @@ def path_following(original_heading):
                     speed_flag = False
 
                 if (lidar_safety_flag == True) and (speed_flag == True):
-                    cost_function = cost_function_calculation(distance_to_goal, clearance, distance_to_path, speed_diff, 0.0, 0.0)
+                    # cost_function = cost_function_calculation(distance_to_goal, clearance, distance_to_path, speed_diff, 0.0, 0.0)
+                    cost_function = cost_function_calculation(distance_to_goal, 0.0, distance_to_path, speed_diff, 0.0, 0.0)
+
                 else:
                     cost_function = np.inf
 
