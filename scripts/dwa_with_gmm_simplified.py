@@ -127,7 +127,7 @@ previous_a = 0.0
 ## DWA cost function coefficients
 alpha = np.zeros(7)
 alpha[0] = 1.0
-alpha[1] = -0.1
+alpha[1] = -1.0
 alpha[2] = 1.0
 alpha[3] = 1.0
 alpha[4] = 100.0
@@ -327,7 +327,7 @@ def path_following(original_heading):
 
     # Velocity space with dynamic constraints
     v_range = np.array([-0.05, -0.04, -0.03, -0.02, -0.01, 0.0, 0.01, 0.02, 0.03, 0.04, 0.05]) + previous_v
-    a_range = np.array([-0.05, -0.04, -0.03, -0.02, -0.01, 0.0, 0.01, 0.02, 0.03, 0.04, 0.05]) + previous_a
+    a_range = np.array([-0.1, -0.08, -0.06, -0.04, -0.02, 0.0, 0.02, 0.04, 0.06, 0.08, 0.1]) + previous_a
 
     # Why convert lidar data to global coordinate? It's unnecessary.
     for i in range(len(laser_scan)):
@@ -340,12 +340,13 @@ def path_following(original_heading):
 
         v = v_range[i]
 
+        speed_diff = v - previous_v
+
         for j in range(len(a_range)):
 
             a = a_range[j]
 
             # Computation of cost function
-            speed_diff = v - previous_v
 
             for i_gmm in range(n_gmm):
                 cost_function_gmm_cluster[i_gmm] = np.inf
@@ -382,7 +383,6 @@ def path_following(original_heading):
                 distance_to_goal = linear_distance(goal.x, dwa.x, goal.y, dwa.y)
 
                 # Clearance calculation
-                # min_distance_to_obstacle = np.inf
                 clearance = np.inf
 
                 # i_angle = np.round(atan2_customized(dwa_local.y, dwa_local.x) / lidar_step)
@@ -391,14 +391,14 @@ def path_following(original_heading):
                 # if i_angle == len(laser_scan):
                 #     i_angle = 0
 
-                for i in range(len(laser_scan)): 
-                    distance_to_obstacle = linear_distance(dwa_local.x, laser_scan_coordinate[0][i], dwa_local.y, laser_scan_coordinate[1][i])
+                for i_scan in range(len(laser_scan)): 
+                    distance_to_obstacle = linear_distance(dwa_local.x, laser_scan_coordinate[0][i_scan], dwa_local.y, laser_scan_coordinate[1][i_scan])
                     if distance_to_obstacle < clearance: 
                         clearance = distance_to_obstacle
 
 
                 # Deviation calculation
-                distance_to_path = get_err_position(dwa.x, dwa.y)
+                distance_to_path = np.abs(get_err_position(dwa.x, dwa.y))
 
                 # if len(planned_path) < 2:
                 #     distance_to_path = 0.0
@@ -644,7 +644,7 @@ def callback_laser_scan(data):
 
 
 def control():
-    r = rospy.Rate(1)
+    r = rospy.Rate(3)
 
     while not rospy.is_shutdown():
         rospy.loginfo('running... ')
