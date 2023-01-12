@@ -94,20 +94,15 @@ final_rotation_finish = False
 # stop_flag = False
 
 ## Information of goal set in RViz
-start_point = Pose()
-start_point.position.x= rospy.get_param('orient_x')
-start_point.position.y= rospy.get_param('orient_y')
+start_point = Point()
+start_point.x= rospy.get_param('orient_x')
+start_point.y= rospy.get_param('orient_y')
 
-goal = Pose()
-goal.position.x = rospy.get_param('goal_x')
-goal.position.y = rospy.get_param('goal_y')
+goal = Point()
+goal.x = rospy.get_param('goal_x')
+goal.y = rospy.get_param('goal_y')
 
-## slope and intercept of the path
-k = (goal.position.y - start_point.position.y) / (goal.position.x - start_point.position.x)
-b = start_point.position.y - k * start_point.position.x
-
-# goal_heading_angle = 0.0
-goal_heading_angle = -np.arctan2(goal.position.x - start_point.position.x, goal.position.y - start_point.position.y)
+# (k, b) = (0.0, 0.0)
 
 
 ## Center coordinates and relative distance
@@ -130,13 +125,14 @@ previous_v = 0.0
 previous_a = 0.0
 
 ## DWA cost function coefficients
-alpha = np.zeros(6)
+alpha = np.zeros(7)
 alpha[0] = 1.0
 alpha[1] = -0.1
 alpha[2] = 1.0
 alpha[3] = 1.0
 alpha[4] = 100.0
 alpha[5] = 1.0
+alpha[6] = 1.0
 
 ## Speed command publisher
 pubCmd = rospy.Publisher('cmd_vel', Twist, queue_size=10)
@@ -279,9 +275,9 @@ def robot_control(v, a):
     pubCmd.publish(cmd_vel_msg)
 
 
-def cost_function_calculation(dis_goal, min_dis_obs, max_dev, spd_diff, cls_rel_dis, cls_size):
+def cost_function_calculation(dis_goal, min_dis_obs, max_dev, spd_diff, angular_speed):
 
-    j = np.zeros(6)
+    j = np.zeros(7)
 
     # Distance to the goal
     j[0] = alpha[0] * np.power(dis_goal, 1)
@@ -292,9 +288,12 @@ def cost_function_calculation(dis_goal, min_dis_obs, max_dev, spd_diff, cls_rel_
     # Speed difference
     j[3] = alpha[3] * np.power(spd_diff, 2)
     # Relative distance of clusters * Not included now
-    j[4] = alpha[4] * np.power(cls_rel_dis, 1)
+    j[4] = 0.0
     # Cluster size * Not included now
-    j[5] = alpha[5] * np.power(cls_size, 1)
+    j[5] = 0.0
+    # Angular speed
+    j[6] = alpha[6] * np.power(angular_speed, 2)
+
 
     # rospy.loginfo('distance to goal' + str(j[0]))
     # rospy.loginfo('min distance to obstacle: ' + str(j[1]))
@@ -318,16 +317,17 @@ def path_following(original_heading):
     optimal_v = np.zeros(10)
     optimal_a = np.zeros(10)
 
+    for i_gmm in range(n_gmm): 
+        cost_function_gmm_cluster[i_gmm] = np.inf
+
     # cost_function = np.zeros(10)
 
     # laser_scan_x = np.zeros((10, 360))
     # laser_scan_y = np.zeros((10, 360))
 
     # Velocity space with dynamic constraints
-    v_range = np.array([-0.10, -0.08, -0.06, -0.04, -0.02,
-                        0.0, 0.02, 0.04, 0.06, 0.08, 0.10]) + previous_v
-    a_range = np.array([-0.10, -0.08, -0.06, -0.04, -0.02,
-                        0.0, 0.02, 0.04, 0.06, 0.08, 0.10]) + previous_a
+    v_range = np.array([-0.05, -0.04, -0.03, -0.02, -0.01, 0.0, 0.01, 0.02, 0.03, 0.04, 0.05]) + previous_v
+    a_range = np.array([-0.05, -0.04, -0.03, -0.02, -0.01, 0.0, 0.01, 0.02, 0.03, 0.04, 0.05]) + previous_a
 
     # Why convert lidar data to global coordinate? It's unnecessary.
     for i in range(len(laser_scan)):
@@ -345,7 +345,7 @@ def path_following(original_heading):
             a = a_range[j]
 
             # Computation of cost function
-            speed_diff = np.power(v - previous_v, 2)
+            speed_diff = v - previous_v
 
             for i_gmm in range(n_gmm):
                 cost_function_gmm_cluster[i_gmm] = np.inf
@@ -354,11 +354,13 @@ def path_following(original_heading):
                 current_y = gmm_mean_matrix[1][i_gmm]
 
                 # Including the following terms
-                min_distance_to_obstacle = np.inf
-                max_deviation_from_path = 0.0
+                # min_distance_to_obstacle = np.inf
+                # replaced by "clearance"
+                # max_deviation_from_path = 0.0
+                # replaced by "distance_to_path"
 
-                total_relative_distance = 0.0
-                total_gmm_cluster_size = 0.0
+                # total_relative_distance = 0.0
+                # total_gmm_cluster_size = 0.0
 
                 # Kinematic calculation
                 dwa = Point(current_x, current_y, 0)
@@ -377,8 +379,7 @@ def path_following(original_heading):
                     dwa_heading_local += t_interval * a
 
                 # Distance to goal calculation
-                distance_to_goal = linear_distance(
-                    goal.position.x, dwa.x, goal.position.y, dwa.y)
+                distance_to_goal = linear_distance(goal.x, dwa.x, goal.y, dwa.y)
 
                 # Clearance calculation
                 # min_distance_to_obstacle = np.inf
@@ -427,12 +428,22 @@ def path_following(original_heading):
                 if (np.abs(v) > 0.26) or (np.abs(a) > 1.82):
                     speed_flag = False
 
-                if (lidar_safety_flag == True) and (speed_flag == True):
+                if (lidar_safety_flag == True) and (speed_flag == True): 
                     # cost_function = cost_function_calculation(distance_to_goal, clearance, distance_to_path, speed_diff, 0.0, 0.0)
-                    cost_function = cost_function_calculation(distance_to_goal, 0.0, distance_to_path, speed_diff, 0.0, 0.0)
+                    cost_function = cost_function_calculation(distance_to_goal, 0.0, distance_to_path, speed_diff, a)
+
+                    # cost_function = cost_function_calculation(distance_to_goal, 0.0, 0.0, 0.0, 0.0, 0.0)
+
 
                 else:
                     cost_function = np.inf
+
+                # rospy.loginfo('i_gmm = ' + str(i_gmm))
+
+                # rospy.loginfo('v: ' + str(v))
+                # rospy.loginfo('a: ' + str(a))
+
+                # rospy.loginfo('cost function = ' + str(cost_function))
 
                 if cost_function < cost_function_gmm_cluster[i_gmm]:
                     cost_function_gmm_cluster[i_gmm] = cost_function
@@ -441,21 +452,30 @@ def path_following(original_heading):
                     optimal_a[i_gmm] = a
 
     # Now it's the weighted average of optimal output
-    for i in range(n_gmm):
-        final_optimal_v = optimal_v[i] * gmm_weight_matrix[i]
-        final_optimal_a = optimal_a[i] * gmm_weight_matrix[i]
 
-    # max_cost_function_index = cost_function_gmm_cluster.index(max(cost_function_gmm_cluster))
-    # max_cost_function_index = cost_function_gmm_cluster.where(cost_function_gmm_cluster == )
+    (final_optimal_v, final_optimal_a) = (0.0, 0.0)
+    
+    for i in range(3):
 
+        rospy.loginfo('Minimum of cost function of cluster ' + str(i) + ' is '+ str(cost_function_gmm_cluster[i]))
+
+        rospy.loginfo('v = ' + str(optimal_v[i]))
+
+        rospy.loginfo('a = ' + str(optimal_a[i]))
+        
+        if cost_function_gmm_cluster[i] < np.inf: 
+            final_optimal_v += optimal_v[i] * gmm_weight_matrix[i]
+            final_optimal_a += optimal_a[i] * gmm_weight_matrix[i]
 
     # final_optimal_v = optimal_v[max_cost_function_index]
     # final_optimal_a = optimal_a[max_cost_function_index]
 
+    # Finding the largest cost function among clusters
+
     # How to determine if the navigation is over?
     # I think AMCL position is better.
     for i in range(n_gmm):
-        if linear_distance(gmm_mean_matrix[0][i], goal.position.x, gmm_mean_matrix[1][i], goal.position.y) < 0.1:
+        if linear_distance(gmm_mean_matrix[0][i], goal.x, gmm_mean_matrix[1][i], goal.y) < 0.1:
             path_following_finish = True
             rospy.loginfo('Path following finished successfully. ')
 
@@ -475,19 +495,7 @@ def initial_rotation(original_heading):
 
     (optimal_v, optimal_a) = (0.0, 0.0)
 
-    # # When distance is very small,  not turning to save time.
-    # if linear_distance(original_x, goal_x, original_y, goal_y) < 2.0:
-    #     initial_rotation_finish = True
-
-    follow_heading = goal_heading_angle
-
-    # if len(planned_path) < 5:
-    #     follow_heading = goal_heading_angle
-    # else:
-    #     follow_heading = atan2_customized(
-    #         planned_path[4].pose.position.y - planned_path[0].pose.position.y, planned_path[4].pose.position.x - planned_path[0].pose.position.x)
-
-    heading_difference = original_heading - follow_heading
+    heading_difference = original_heading - goal_heading_angle
 
     if heading_difference > np.pi:
         heading_difference = heading_difference - 2.0 * np.pi
@@ -636,7 +644,7 @@ def callback_laser_scan(data):
 
 
 def control():
-    r = rospy.Rate(5)
+    r = rospy.Rate(1)
 
     while not rospy.is_shutdown():
         rospy.loginfo('running... ')
@@ -663,6 +671,7 @@ def control():
 
 # Main function
 if __name__ == '__main__':
+    global goal_heading_angle, k, b
 
     rospy.init_node('gmm_controller', anonymous=True)
 
@@ -687,6 +696,12 @@ if __name__ == '__main__':
 
     sub_laser_scan = rospy.Subscriber('/scan', LaserScan, callback_laser_scan)
 
+    # slope and intercept of the path
+    k = (goal.y - start_point.y) / (goal.x - start_point.x)
+    b = start_point.y - k * start_point.x
+
+    goal_heading_angle = atan2_customized(goal.y - start_point.y, goal.x - start_point.x)
+    
     control_thread = threading.Thread(target=control)
     control_thread.start()
 
