@@ -52,7 +52,7 @@ lidar_range_max = 5.0
 lidar_step = 30
 
 ## Control time interval
-t_interval = 0.2
+t_interval = 0.1
 
 ## If AMCL is processed to GMM and control based on GMM can be done
 gmm_info = False
@@ -126,16 +126,27 @@ previous_a = 0.0
 
 ## DWA cost function coefficients
 alpha = np.zeros(7)
+# Distance to the goal
+# Minimal distance to the obstacle
+# Max deviation from the path
+# Speed difference
+# Relative distance of clusters * Not included now
+# Cluster size * Not included now
+# Angular speed
 alpha[0] = 1.0
-alpha[1] = -1.0
-alpha[2] = 1.0
-alpha[3] = 1.0
-alpha[4] = 100.0
-alpha[5] = 1.0
-alpha[6] = 1.0
+alpha[1] = -0.1
+alpha[2] = 10.0
+alpha[3] = 10.0
+# alpha[4] = 1.0
+# alpha[5] = 1.0
+alpha[6] = 10.0
 
 ## Speed command publisher
 pubCmd = rospy.Publisher('cmd_vel', Twist, queue_size=10)
+
+## Error data
+error_msg = Point()
+error_mse = 0.0
 
 
 # Methods
@@ -186,7 +197,6 @@ def linear_distance(x1, x2, y1, y2):
 
 def get_err_position(x, y):
     d = (y - k * x - b) / math.sqrt(1 + math.pow(k, 2))
-    
     # rospy.loginfo('linear_error = ' + str(d))
     
     return d
@@ -245,6 +255,7 @@ def gmm_process():
             gmm_covariance_matrix[1][i] = v[1]
 
             gmm_weight_matrix[i] = weight
+        
 
         # Calculation of relative distance of GMM clusters
         for i in range(n_gmm):
@@ -281,6 +292,7 @@ def cost_function_calculation(dis_goal, min_dis_obs, max_dev, spd_diff, angular_
 
     # Distance to the goal
     j[0] = alpha[0] * np.power(dis_goal, 1)
+
     # Minimal distance to the obstacle
     j[1] = alpha[1] * np.power(min_dis_obs, 1)
     # Max deviation from the path
@@ -294,13 +306,13 @@ def cost_function_calculation(dis_goal, min_dis_obs, max_dev, spd_diff, angular_
     # Angular speed
     j[6] = alpha[6] * np.power(angular_speed, 2)
 
-
-    # rospy.loginfo('distance to goal' + str(j[0]))
+    # rospy.loginfo('distance to goal: ' + str(j[0]))
     # rospy.loginfo('min distance to obstacle: ' + str(j[1]))
     # rospy.loginfo('max deviation: ' + str(j[2]))
     # rospy.loginfo('speed difference: ' + str(j[3]))
-    # rospy.loginfo('relative distance: ' + str(j[4]))
-    # rospy.loginfo('cluster size: ' + str(j[5]))
+    # rospy.loginfo('angular speed: ' + str(j[6]))
+
+    # rospy.loginfo('Total cost function: ' + str(np.sum(j)))
 
     return np.sum(j)
 
@@ -335,7 +347,6 @@ def path_following(original_heading):
         laser_scan_coordinate[0][i] = -laser_scan[i] * np.sin(laser_scan_theta)
         laser_scan_coordinate[1][i] = laser_scan[i] * np.cos(laser_scan_theta)
 
-
     for i in range(len(v_range)):
 
         v = v_range[i]
@@ -349,8 +360,6 @@ def path_following(original_heading):
             # Computation of cost function
 
             for i_gmm in range(n_gmm):
-                cost_function_gmm_cluster[i_gmm] = np.inf
-
                 current_x = gmm_mean_matrix[0][i_gmm]
                 current_y = gmm_mean_matrix[1][i_gmm]
 
@@ -430,7 +439,7 @@ def path_following(original_heading):
 
                 if (lidar_safety_flag == True) and (speed_flag == True): 
                     # cost_function = cost_function_calculation(distance_to_goal, clearance, distance_to_path, speed_diff, 0.0, 0.0)
-                    cost_function = cost_function_calculation(distance_to_goal, 0.0, distance_to_path, speed_diff, a)
+                    cost_function = cost_function_calculation(distance_to_goal, clearance, distance_to_path, speed_diff, a)
 
                     # cost_function = cost_function_calculation(distance_to_goal, 0.0, 0.0, 0.0, 0.0, 0.0)
 
@@ -467,6 +476,14 @@ def path_following(original_heading):
             final_optimal_v += optimal_v[i] * gmm_weight_matrix[i]
             final_optimal_a += optimal_a[i] * gmm_weight_matrix[i]
 
+    if np.abs(v) > 0.26:
+        v = v / np.abs(v) * 0.26
+
+    if np.abs(a) > 1.82: 
+        a = a / np.abs(a) * 1.82
+
+
+
     # final_optimal_v = optimal_v[max_cost_function_index]
     # final_optimal_a = optimal_a[max_cost_function_index]
 
@@ -474,19 +491,21 @@ def path_following(original_heading):
 
     # How to determine if the navigation is over?
     # I think AMCL position is better.
+    # Just keep it for now. 
     for i in range(n_gmm):
         if linear_distance(gmm_mean_matrix[0][i], goal.x, gmm_mean_matrix[1][i], goal.y) < 0.1:
             path_following_finish = True
-            rospy.loginfo('Path following finished successfully. ')
 
     if path_following_finish is False:
         robot_control(final_optimal_v, final_optimal_a)
+
     else:
-        pass
+        rospy.loginfo('Path following finished successfully. ')
 
     (previous_v, previous_a) = (final_optimal_v, final_optimal_a)
 
     path_following_finish_time = time.time()
+    
     rospy.loginfo('Path following calculation time: ' + str(path_following_finish_time - start_time))
 
 
@@ -644,7 +663,13 @@ def callback_laser_scan(data):
 
 
 def control():
-    r = rospy.Rate(3)
+    # error related
+    global error_msg, error_mse
+
+    pubError = rospy.Publisher('error', Point, queue_size=10)
+
+
+    r = rospy.Rate(10)
 
     while not rospy.is_shutdown():
         rospy.loginfo('running... ')
@@ -661,6 +686,9 @@ def control():
 
         else:
             control_with_gmm()
+
+        error_msg.x = get_err_position(gazebo_odom.pose.pose.position.x, gazebo_odom.pose.pose.position.y)
+        pubError.publish(error_msg)
 
         end_time = time.time()
 
@@ -688,11 +716,9 @@ if __name__ == '__main__':
 
     sub_path = rospy.Subscriber('move_base/NavfnROS/plan', Path, callback_path)
 
-    sub_goal = rospy.Subscriber(
-        '/move_base_simple/goal', PoseStamped, callback_goal)
+    sub_goal = rospy.Subscriber('/move_base_simple/goal', PoseStamped, callback_goal)
 
-    sub_costmap = rospy.Subscriber(
-        '/move_base/local_costmap/costmap', OccupancyGrid, callback_costmap)
+    sub_costmap = rospy.Subscriber('/move_base/local_costmap/costmap', OccupancyGrid, callback_costmap)
 
     sub_laser_scan = rospy.Subscriber('/scan', LaserScan, callback_laser_scan)
 

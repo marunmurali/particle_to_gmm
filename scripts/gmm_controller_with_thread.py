@@ -399,7 +399,7 @@ def control_with_gmm(means, covariances, weights, amcl_pose, odom):
 
             rospy.loginfo('Travel time = ' + str(time_elapsed) + "s")
 
-        if time_elapsed > 1.0: 
+        if time_elapsed > 0.1: 
             mse_list.append(np.power(position_error, 2))
 
     

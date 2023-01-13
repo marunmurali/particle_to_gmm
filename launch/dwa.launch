@@ -41,16 +41,22 @@
 
   <param name="gmm" value="$(arg gmm)"/>
 
-  <!-- <node name="error_plot"
+  <node name="error_plot"
         pkg="rqt_plot"
         type="rqt_plot"
-        args="/error/x" /> -->
+        args="/error/x /error/y" />
 
   <!-- <node pkg="particle_to_gmm" type="gmm_visualizer.py" name="gmm_visualizer" output="screen">
   </node> -->
 
   <node pkg="particle_to_gmm" type="particle_to_gmm.py" name="particle_to_gmm" output="screen">
   </node>
+
+  <!-- <node pkg="particle_to_gmm" type="dwa_with_gmm.py" name="dwa_with_gmm" output="screen">
+  </node>  -->
+
+  <!-- <node pkg="particle_to_gmm" type="dwa_with_gmm_refined.py" name="dwa_with_gmm_refined" output="screen">
+  </node>  -->
 
   <node pkg="particle_to_gmm" type="dwa_with_gmm_simplified.py" name="dwa_with_gmm_simplified" output="screen">
   </node> 
