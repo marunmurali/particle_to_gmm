@@ -103,6 +103,7 @@ goal = Point()
 goal.x = rospy.get_param('goal_x')
 goal.y = rospy.get_param('goal_y')
 
+# Here we suppose that k doesn't equal to 0 or inf.  
 # (k, b) = (0.0, 0.0)
 
 
@@ -136,8 +137,8 @@ alpha = np.zeros(7)
 # Angular speed
 alpha[0] = 1.0
 alpha[1] = -0.1
-alpha[2] = 10.0
-alpha[3] = 10.0
+alpha[2] = 1.0
+alpha[3] = 0.1
 # alpha[4] = 1.0
 # alpha[5] = 1.0
 alpha[6] = 10.0
@@ -407,6 +408,10 @@ def path_following(original_heading):
                     if distance_to_obstacle < clearance: 
                         clearance = distance_to_obstacle
 
+                # rospy.loginfo('clearance' + str(clearance))
+
+                if clearance == np.inf: 
+                    clearance = 5.0
 
                 # Deviation calculation
                 distance_to_path = np.abs(get_err_position(dwa.x, dwa.y))
@@ -440,10 +445,9 @@ def path_following(original_heading):
                     speed_flag = False
 
                 if (lidar_safety_flag == True) and (speed_flag == True): 
-                    # cost_function = cost_function_calculation(distance_to_goal, clearance, distance_to_path, speed_diff, 0.0, 0.0)
+                    # cost_function = cost_function_calculation(distance_to_goal, 0.0, distance_to_path, speed_diff, a)
                     cost_function = cost_function_calculation(distance_to_goal, clearance, distance_to_path, speed_diff, a)
-
-                    # cost_function = cost_function_calculation(distance_to_goal, 0.0, 0.0, 0.0, 0.0, 0.0)
+                    # cost_function = cost_function_calculation(distance_to_goal, 0.0, 0.0, 0.0, 0.0)
 
 
                 else:
@@ -468,11 +472,11 @@ def path_following(original_heading):
     
     for i in range(3):
 
-        rospy.loginfo('Minimum of cost function of cluster ' + str(i) + ' is '+ str(cost_function_gmm_cluster[i]))
+        # rospy.loginfo('Minimum of cost function of cluster ' + str(i) + ' is '+ str(cost_function_gmm_cluster[i]))
 
-        rospy.loginfo('v = ' + str(optimal_v[i]))
+        # rospy.loginfo('v = ' + str(optimal_v[i]))
 
-        rospy.loginfo('a = ' + str(optimal_a[i]))
+        # rospy.loginfo('a = ' + str(optimal_a[i]))
         
         if cost_function_gmm_cluster[i] < np.inf: 
             final_optimal_v += optimal_v[i] * gmm_weight_matrix[i]
@@ -484,8 +488,6 @@ def path_following(original_heading):
     if np.abs(a) > 1.82: 
         a = a / np.abs(a) * 1.82
 
-
-
     # final_optimal_v = optimal_v[max_cost_function_index]
     # final_optimal_a = optimal_a[max_cost_function_index]
 
@@ -495,7 +497,10 @@ def path_following(original_heading):
     # I think AMCL position is better.
     # Just keep it for now. 
     for i in range(n_gmm):
-        if linear_distance(gmm_mean_matrix[0][i], goal.x, gmm_mean_matrix[1][i], goal.y) < 0.1:
+        # if linear_distance(gmm_mean_matrix[0][i], goal.x, gmm_mean_matrix[1][i], goal.y) < 0.1:
+        #     path_following_finish = True
+
+        if ((goal.x - gmm_mean_matrix[0][i]) * (goal.x - start_point.x) + (goal.y - gmm_mean_matrix[1][i]) * (goal.y - start_point.y)) < 0: 
             path_following_finish = True
 
     if path_following_finish is False:
