@@ -49,7 +49,7 @@ lidar_range_min = 0.16
 lidar_range_max = 5.0
 
 ## Lidar data step length (equal to degree), for saving computational time:
-lidar_step = 30
+lidar_step = 12
 
 ## Control time interval
 t_interval = 0.1
@@ -79,6 +79,7 @@ MSE_array = None
 ## Data of lidar scan
 laser_scan = None
 laser_scan_coordinate = np.zeros((2, 360))
+# n_laser_scan = 360
 
 ## Odometry of the robot
 odom = Odometry()
@@ -342,8 +343,9 @@ def path_following(original_heading):
     a_range = np.array([-0.1, -0.08, -0.06, -0.04, -0.02, 0.0, 0.02, 0.04, 0.06, 0.08, 0.1]) + previous_a
 
     # Why convert lidar data to global coordinate? It's unnecessary.
+    # 2023/1/13 Repaired a major problem
     for i in range(len(laser_scan)):
-        laser_scan_theta = np.pi / 180.0 * i
+        laser_scan_theta = np.pi / 180.0 * i * lidar_step
         laser_scan_coordinate[0][i] = -laser_scan[i] * np.sin(laser_scan_theta)
         laser_scan_coordinate[1][i] = laser_scan[i] * np.cos(laser_scan_theta)
 
