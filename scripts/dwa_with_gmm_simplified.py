@@ -26,6 +26,7 @@ import math
 import numpy as np
 from functools import partial
 import matplotlib as mpl
+import statistics
 
 ## ROS libraries
 from std_msgs.msg import (MultiArrayDimension, Float64MultiArray)
@@ -49,7 +50,7 @@ lidar_range_min = 0.16
 lidar_range_max = 5.0
 
 ## Lidar data step length (equal to degree), for saving computational time:
-lidar_step = 12
+lidar_step = 30
 
 ## Control time interval
 t_interval = 0.1
@@ -92,7 +93,9 @@ gazebo_odom = Odometry()
 initial_rotation_finish = False
 path_following_finish = False
 final_rotation_finish = False
-# stop_flag = False
+init = False
+calc = False
+path_following_start_time = None
 
 ## Information of goal set in RViz
 start_point = Point()
@@ -148,7 +151,8 @@ pubCmd = rospy.Publisher('cmd_vel', Twist, queue_size=10)
 
 ## Error data
 error_msg = Point()
-error_mse = 0.0
+squared_error = np.empty(0)
+
 
 
 # Methods
@@ -323,6 +327,8 @@ def cost_function_calculation(dis_goal, min_dis_obs, max_dev, spd_diff, angular_
 def path_following(original_heading):
     global path_following_finish, previous_v, previous_a, cost_function_gmm_cluster
 
+    global squared_error, error_msg
+
     start_time = time.time()
 
     lidar_safety_flag = True
@@ -341,7 +347,7 @@ def path_following(original_heading):
 
     # Velocity space with dynamic constraints
     v_range = np.array([-0.05, -0.04, -0.03, -0.02, -0.01, 0.0, 0.01, 0.02, 0.03, 0.04, 0.05]) + previous_v
-    a_range = np.array([-0.1, -0.08, -0.06, -0.04, -0.02, 0.0, 0.02, 0.04, 0.06, 0.08, 0.1]) + previous_a
+    a_range = np.array([-0.05, -0.04, -0.03, -0.02, -0.01, 0.0, 0.01, 0.02, 0.03, 0.04, 0.05]) + previous_a
 
     # Why convert lidar data to global coordinate? It's unnecessary.
     # 2023/1/13 Repaired a major problem
@@ -500,11 +506,13 @@ def path_following(original_heading):
         # if linear_distance(gmm_mean_matrix[0][i], goal.x, gmm_mean_matrix[1][i], goal.y) < 0.1:
         #     path_following_finish = True
 
-        if ((goal.x - gmm_mean_matrix[0][i]) * (goal.x - start_point.x) + (goal.y - gmm_mean_matrix[1][i]) * (goal.y - start_point.y)) < 0: 
+        if ((goal.x - gmm_mean_matrix[0][i]) * (goal.x - start_point.x) + (goal.y - gmm_mean_matrix[1][i]) * (goal.y - start_point.y)) <= 0: 
             path_following_finish = True
 
     if path_following_finish is False:
         robot_control(final_optimal_v, final_optimal_a)
+
+        squared_error = np.append(squared_error, np.power(error_msg.x, 2))
 
     else:
         rospy.loginfo('Path following finished successfully. ')
@@ -567,12 +575,25 @@ def final_rotation(original_heading):
     robot_control(optimal_v, optimal_a)
 
 
+def final_calculation(): 
+    global error_mse, squared_error
+
+    path_following_end_time = time.time()
+    
+    error_mse = np.average(squared_error)
+
+    path_following_time = path_following_end_time - path_following_start_time
+
+    rospy.loginfo('Path following time = ' + str(path_following_time) + 's. ')
+    rospy.loginfo('MSE of error = ' + str(error_mse) + 'm^2')
+
+
+
 # Controller method
 def control_with_gmm():
-
     # Global variables
     global initial_rotation_finish, path_following_finish, final_rotation_finish
-    # global costmap
+    global error_mse, path_following_start_time, init, calc
 
     original_z = amcl_pose.pose.pose.orientation.z
     original_w = amcl_pose.pose.pose.orientation.w
@@ -583,9 +604,16 @@ def control_with_gmm():
         initial_rotation(original_heading)
 
     elif path_following_finish is False:
+        if init == False: 
+            path_following_start_time = time.time()
+            init = True
+
         path_following(original_heading)
 
-    elif final_rotation_finish is False:
+    elif final_rotation_finish is False: 
+        if calc == False: 
+            final_calculation()
+            calc = True
         final_rotation(original_heading)
 
     else:
@@ -671,7 +699,7 @@ def callback_laser_scan(data):
 
 def control():
     # error related
-    global error_msg, error_mse
+    global error_msg
 
     pubError = rospy.Publisher('error', Point, queue_size=10)
 
@@ -679,23 +707,18 @@ def control():
     r = rospy.Rate(10)
 
     while not rospy.is_shutdown():
-        rospy.loginfo('running... ')
+        # rospy.loginfo('running... ')
 
         start_time = time.time()
 
-        # if planned_path is None:
-        #     rospy.loginfo('Waiting for path...')
-        #     pass
+        error_msg.x = get_err_position(gazebo_odom.pose.pose.position.x, gazebo_odom.pose.pose.position.y)
+        pubError.publish(error_msg)
 
-        # else:
         if gmm_info is False:
             control_with_no_gmm()
 
         else:
             control_with_gmm()
-
-        error_msg.x = get_err_position(gazebo_odom.pose.pose.position.x, gazebo_odom.pose.pose.position.y)
-        pubError.publish(error_msg)
 
         end_time = time.time()
 
