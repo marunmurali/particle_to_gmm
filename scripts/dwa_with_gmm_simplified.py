@@ -257,19 +257,20 @@ def gmm_process():
             gmm_mean_matrix[1][i] = m[1]
 
             # [0][i] means b and [1][i] means a
-            gmm_covariance_matrix[0][i] = v[0]
-            gmm_covariance_matrix[1][i] = v[1]
+            # gmm_covariance_matrix[0][i] = v[0]
+            # gmm_covariance_matrix[1][i] = v[1]
 
             gmm_weight_matrix[i] = weight
         
 
         # Calculation of relative distance of GMM clusters
-        for i in range(n_gmm):
-            for j in range(1, n_gmm):
-                relative_distance_matrix[i][j] = linear_distance(
-                    gmm_mean_matrix[0][i], gmm_mean_matrix[0][j], gmm_mean_matrix[1][i], gmm_mean_matrix[1][j])
+        # for i in range(n_gmm):
+        #     for j in range(1, n_gmm):
+        #         relative_distance_matrix[i][j] = linear_distance(
+        #             gmm_mean_matrix[0][i], gmm_mean_matrix[0][j], gmm_mean_matrix[1][i], gmm_mean_matrix[1][j])
 
-        gmm_info = True
+        if gmm_info is False:
+            gmm_info = True
 
 
 def robot_control(v, a):
@@ -422,35 +423,12 @@ def path_following(original_heading):
                 # Deviation calculation
                 distance_to_path = np.abs(get_err_position(dwa.x, dwa.y))
 
-                # if len(planned_path) < 2:
-                #     distance_to_path = 0.0
-
-                # else:
-
-                #     for k2 in range(min(len(planned_path), 29)):
-                #         pose = planned_path[k2]
-
-                #         error = linear_distance(
-                #             dwa.x, pose.pose.position.x, dwa.y, pose.pose.position.y)
-
-                #         if error < distance_to_path:
-                #             distance_to_path = error
-
-                #     if distance_to_path > max_deviation_from_path:
-                #         max_deviation_from_path = distance_to_path
-
-                # Summation of relative distance
-                # sum_relative_distance = np.sum(relative_distance_matrix)
-
-                # l_gmm and r_gmm. a and b used here
-                # sum_cluster_size = np.sum(gmm_covariance_matrix)
-
                 # Calculation of cost function
 
                 if (np.abs(v) > 0.26) or (np.abs(a) > 1.82):
                     speed_flag = False
 
-                if (lidar_safety_flag == True) and (speed_flag == True): 
+                if (lidar_safety_flag is True) and (speed_flag is True): 
                     # cost_function = cost_function_calculation(distance_to_goal, 0.0, distance_to_path, speed_diff, a)
                     cost_function = cost_function_calculation(distance_to_goal, clearance, distance_to_path, speed_diff, a)
                     # cost_function = cost_function_calculation(distance_to_goal, 0.0, 0.0, 0.0, 0.0)
@@ -500,11 +478,12 @@ def path_following(original_heading):
     # Finding the largest cost function among clusters
 
     # How to determine if the navigation is over?
-    # I think AMCL position is better.
-    # Just keep it for now. 
+    # Implemented method based on vector multiplication
     for i in range(n_gmm):
         # if linear_distance(gmm_mean_matrix[0][i], goal.x, gmm_mean_matrix[1][i], goal.y) < 0.1:
         #     path_following_finish = True
+
+        print(str((goal.x - gmm_mean_matrix[0][i]) * (goal.x - start_point.x) + (goal.y - gmm_mean_matrix[1][i]) * (goal.y - start_point.y)))
 
         if ((goal.x - gmm_mean_matrix[0][i]) * (goal.x - start_point.x) + (goal.y - gmm_mean_matrix[1][i]) * (goal.y - start_point.y)) <= 0: 
             path_following_finish = True
@@ -515,7 +494,7 @@ def path_following(original_heading):
         squared_error = np.append(squared_error, np.power(error_msg.x, 2))
 
     else:
-        rospy.loginfo('Path following finished successfully. ')
+        rospy.loginfo('Path following finished. ')
 
     (previous_v, previous_a) = (final_optimal_v, final_optimal_a)
 
@@ -604,7 +583,7 @@ def control_with_gmm():
         initial_rotation(original_heading)
 
     elif path_following_finish is False:
-        if init == False: 
+        if not init: 
             path_following_start_time = time.time()
             init = True
 

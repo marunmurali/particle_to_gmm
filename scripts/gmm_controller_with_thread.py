@@ -112,6 +112,7 @@ odom = Odometry()
 
 gazebo_odom = Odometry()
 
+start_flag = False
 stop_flag = False
 
 start_time = 0.0
@@ -234,6 +235,8 @@ def control_with_gmm(means, covariances, weights, amcl_pose, odom):
     global mse_list, mse_calculation, start_time, count_time
 
     global gazebo_odom
+
+    global stop_flag
 
     pubCmd = rospy.Publisher('cmd_vel', Twist, queue_size=10)
     pubError = rospy.Publisher('error', Point, queue_size=10)
@@ -370,10 +373,24 @@ def control_with_gmm(means, covariances, weights, amcl_pose, odom):
     cmd_vel_msg.angular.y = 0.0
     cmd_vel_msg.angular.z = angular_cmd
 
-    global stop_flag
+    # New way of detecting path following finish
+    if gmm_flag: 
+        for i, m in enumerate(means):
+        # if linear_distance(gmm_mean_matrix[0][i], goal.x, gmm_mean_matrix[1][i], goal.y) < 0.1:
+        #     path_following_finish = True
+            x = m[0]
+            y = m[1]
+            if ((goal_x - x) * (goal_x - orient_x) + (goal_y - y) * (goal_y - orient_y)) <= 0: 
+                stop_flag = True   
+    else: 
+        x = amcl_pose.pose.pose.position.x
+        y = amcl_pose.pose.pose.position.y
+        if ((goal_x - x) * (goal_x - orient_x) + (goal_y - y) * (goal_y - orient_y)) <= 0: 
+            stop_flag = True   
 
-    if dist_goal < 0.2: 
-        stop_flag = True
+
+    # if dist_goal < 0.2: 
+    #     stop_flag = True
 
     if stop_flag is True: 
         cmd_vel_msg.linear.x = 0.0
@@ -480,8 +497,15 @@ def callback_gazebo_odom(data):
  
 
 def control(): 
+    global start_time, start_flag
+
     r = rospy.Rate(10)
+
     while not rospy.is_shutdown(): 
+        if not start_flag: 
+            start_time = rospy.get_time()
+            start_flag = True
+            
         if gmm_mean is None or gmm_covariance is None or gmm_weight is None: 
             control_with_no_info()
         else: 
@@ -509,8 +533,6 @@ if __name__ == '__main__':
 
     pub = threading.Thread(target=control)
     pub.start()
-
-    start_time = rospy.get_time()
 
     if gmm_flag == True: 
         rospy.loginfo('running with GMM')
