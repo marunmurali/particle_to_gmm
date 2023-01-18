@@ -97,6 +97,10 @@ init = False
 calc = False
 path_following_start_time = None
 
+## Investigating time of GMM and DWA
+gmm_time = None
+# dwa_time = None
+
 ## Information of goal set in RViz
 start_point = Point()
 start_point.x= rospy.get_param('orient_x')
@@ -140,8 +144,8 @@ alpha = np.zeros(7)
 # Angular speed
 alpha[0] = 1.0
 alpha[1] = -0.1
-alpha[2] = 1.0
-alpha[3] = 0.1
+alpha[2] = 2.0
+alpha[3] = 10.0
 # alpha[4] = 1.0
 # alpha[5] = 1.0
 alpha[6] = 10.0
@@ -151,6 +155,8 @@ pubCmd = rospy.Publisher('cmd_vel', Twist, queue_size=10)
 
 ## Error data
 error_msg = Point()
+error_plt = np.empty(0)
+
 squared_error = np.empty(0)
 
 
@@ -232,6 +238,8 @@ to_numpy_f64 = partial(_multiarray_to_numpy, float, np.float64)
 def gmm_process():
     global gmm_info
 
+    global gmm_time
+
     if (gmm_mean is None) or (gmm_covariance is None) or (gmm_weight is None):
         pass
 
@@ -268,6 +276,8 @@ def gmm_process():
         #     for j in range(1, n_gmm):
         #         relative_distance_matrix[i][j] = linear_distance(
         #             gmm_mean_matrix[0][i], gmm_mean_matrix[0][j], gmm_mean_matrix[1][i], gmm_mean_matrix[1][j])
+
+        gmm_time = time.time()
 
         if gmm_info is False:
             gmm_info = True
@@ -306,9 +316,9 @@ def cost_function_calculation(dis_goal, min_dis_obs, max_dev, spd_diff, angular_
     j[2] = alpha[2] * np.power(max_dev, 1)
     # Speed difference
     j[3] = alpha[3] * np.power(spd_diff, 2)
-    # Relative distance of clusters * Not included now
+    # Relative distance of clusters *Not included now
     j[4] = 0.0
-    # Cluster size * Not included now
+    # Cluster size *Not included now
     j[5] = 0.0
     # Angular speed
     j[6] = alpha[6] * np.power(angular_speed, 2)
@@ -338,6 +348,8 @@ def path_following(original_heading):
     optimal_v = np.zeros(10)
     optimal_a = np.zeros(10)
 
+    # rospy.loginfo('Time difference between path following and GMM: ' + str(start_time - gmm_time))
+    
     for i_gmm in range(n_gmm): 
         cost_function_gmm_cluster[i_gmm] = np.inf
 
@@ -483,7 +495,7 @@ def path_following(original_heading):
         # if linear_distance(gmm_mean_matrix[0][i], goal.x, gmm_mean_matrix[1][i], goal.y) < 0.1:
         #     path_following_finish = True
 
-        print(str((goal.x - gmm_mean_matrix[0][i]) * (goal.x - start_point.x) + (goal.y - gmm_mean_matrix[1][i]) * (goal.y - start_point.y)))
+        # print(str((goal.x - gmm_mean_matrix[0][i]) * (goal.x - start_point.x) + (goal.y - gmm_mean_matrix[1][i]) * (goal.y - start_point.y)))
 
         if ((goal.x - gmm_mean_matrix[0][i]) * (goal.x - start_point.x) + (goal.y - gmm_mean_matrix[1][i]) * (goal.y - start_point.y)) <= 0: 
             path_following_finish = True
@@ -573,6 +585,7 @@ def control_with_gmm():
     # Global variables
     global initial_rotation_finish, path_following_finish, final_rotation_finish
     global error_mse, path_following_start_time, init, calc
+    global previous_v
 
     original_z = amcl_pose.pose.pose.orientation.z
     original_w = amcl_pose.pose.pose.orientation.w
@@ -590,6 +603,8 @@ def control_with_gmm():
         path_following(original_heading)
 
     elif final_rotation_finish is False: 
+        previous_v = 0.0
+
         if calc == False: 
             final_calculation()
             calc = True
@@ -687,10 +702,11 @@ def control():
 
     while not rospy.is_shutdown():
         # rospy.loginfo('running... ')
-
-        start_time = time.time()
+        # start_time = time.time()
 
         error_msg.x = get_err_position(gazebo_odom.pose.pose.position.x, gazebo_odom.pose.pose.position.y)
+        error_msg.y = previous_v
+
         pubError.publish(error_msg)
 
         if gmm_info is False:
@@ -699,8 +715,7 @@ def control():
         else:
             control_with_gmm()
 
-        end_time = time.time()
-
+        # end_time = time.time()
         # rospy.loginfo('Runtime of the program is ' + str(end_time - start_time))
 
         r.sleep()
