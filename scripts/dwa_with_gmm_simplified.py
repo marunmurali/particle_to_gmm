@@ -26,6 +26,8 @@ import math
 import numpy as np
 from functools import partial
 import matplotlib as mpl
+import matplotlib.pyplot as plt
+from matplotlib.ticker import (MultipleLocator, AutoMinorLocator)
 import statistics
 
 ## ROS libraries
@@ -133,6 +135,9 @@ cost_function_gmm_cluster = np.zeros(10)
 previous_v = 0.0
 previous_a = 0.0
 
+final_optimal_v = 0.0
+final_optimal_a = 0.0
+
 ## DWA cost function coefficients
 alpha = np.zeros(7)
 # Distance to the goal
@@ -152,13 +157,17 @@ alpha[6] = 10.0
 
 ## Speed command publisher
 pubCmd = rospy.Publisher('cmd_vel', Twist, queue_size=10)
+cmd_vel_msg = Twist()
 
 ## Error data
 error_msg = Point()
 error_plt = np.empty(0)
-
+speed_plt = np.empty(0)
+a_speed_plt = np.empty(0)
+t_plt = np.empty(0)
 squared_error = np.empty(0)
 
+plot_finish = False
 
 
 # Methods
@@ -286,9 +295,7 @@ def gmm_process():
 def robot_control(v, a):
     # Initialize command publisher
 
-    global pubCmd
-
-    cmd_vel_msg = Twist()
+    global pubCmd, cmd_vel_msg
 
     cmd_vel_msg.linear.x = v
     cmd_vel_msg.linear.y = 0.0
@@ -338,7 +345,9 @@ def cost_function_calculation(dis_goal, min_dis_obs, max_dev, spd_diff, angular_
 def path_following(original_heading):
     global path_following_finish, previous_v, previous_a, cost_function_gmm_cluster
 
-    global squared_error, error_msg
+    global squared_error, error_msg, error_plt, speed_plt, a_speed_plt, t_plt
+
+    global final_optimal_v, final_optimal_a
 
     start_time = time.time()
 
@@ -503,8 +512,6 @@ def path_following(original_heading):
     if path_following_finish is False:
         robot_control(final_optimal_v, final_optimal_a)
 
-        squared_error = np.append(squared_error, np.power(error_msg.x, 2))
-
     else:
         rospy.loginfo('Path following finished. ')
 
@@ -512,7 +519,7 @@ def path_following(original_heading):
 
     path_following_finish_time = time.time()
     
-    rospy.loginfo('Path following calculation time: ' + str(path_following_finish_time - start_time))
+    # rospy.loginfo('Path following calculation time: ' + str(path_following_finish_time - start_time))
 
 
 def initial_rotation(original_heading):
@@ -593,21 +600,17 @@ def control_with_gmm():
 
     if initial_rotation_finish is False:
         # initial_rotation(original_x, original_y, original_heading)
-        initial_rotation(original_heading)
-
-    elif path_following_finish is False:
         if not init: 
             path_following_start_time = time.time()
             init = True
 
+        initial_rotation(original_heading)
+
+    elif path_following_finish is False:
         path_following(original_heading)
 
     elif final_rotation_finish is False: 
-        previous_v = 0.0
 
-        if calc == False: 
-            final_calculation()
-            calc = True
         final_rotation(original_heading)
 
     else:
@@ -691,35 +694,105 @@ def callback_laser_scan(data):
     # rospy.loginfo(len(laser_scan))
 
 
+# For 1st secondary axis, convert and revert share the same function. 
+def sub_conv(x): 
+    return x
+
+def sub2_conv(x): 
+    return 0.1 * x
+
+def sub2_rev(x): 
+    return 10.0 * x
+
+
+def result_plot(): 
+    global t_plt, error_plt, speed_plt, a_speed_plt
+
+    fig, ax = plt.subplots(constrained_layout=True)
+
+    # plt_x_1 = np.empty(0)
+    # for i in range(len(error_plt)): 
+    #     plt_x_1 = np.append(plt_x_1, 0.1 * (i + 1))
+
+    # plt_x_2 = np.empty(0)
+    # for i in range(len(speed_plt)): 
+    #     plt_x_2 = np.append(plt_x_2, 0.1 * (i + 1))
+
+    # ax.plot(plt_x_1, error_plt, label='error (distance to the reference line)')
+
+    # ax.plot(plt_x_2, speed_plt, label='error (distance to the reference line)')
+
+    ax.plot(t_plt, error_plt, label='error (distance to the reference line)', color='r')
+    ax.plot(t_plt, speed_plt, label='speed command', color='g')
+    ax.plot(t_plt, a_speed_plt, label='angular speed command', color='b')
+
+    ax.set_xlabel('t/s')
+    ax.set_ylabel('error/m')
+    ax.set_title('DWA controller path following error')
+    ax.yaxis.set_minor_locator(MultipleLocator(5))
+
+    ax_sub = ax.secondary_yaxis('right', functions=(sub_conv, sub_conv))
+    ax_sub.set_ylabel('speed/(m/s)')
+    ax_sub.yaxis.set_minor_locator(MultipleLocator(5))
+
+    ax_sub2 = ax.secondary_yaxis(1.2, functions=(sub2_conv, sub2_rev))
+    ax_sub2.set_ylabel('angular speed/(rad/s)')
+    ax_sub2.yaxis.set_minor_locator(MultipleLocator(5))
+
+    plt.show()
+
+
 def control():
-    # error related
-    global error_msg
-
-    pubError = rospy.Publisher('error', Point, queue_size=10)
-
-
-    r = rospy.Rate(10)
+    r_control = rospy.Rate(10)
 
     while not rospy.is_shutdown():
-        # rospy.loginfo('running... ')
-        # start_time = time.time()
+        if final_rotation_finish is False: 
+            start_time = time.time()
+            if gmm_info is False:
+                control_with_no_gmm()
 
-        error_msg.x = get_err_position(gazebo_odom.pose.pose.position.x, gazebo_odom.pose.pose.position.y)
-        error_msg.y = previous_v
+            else:
+                control_with_gmm()
 
-        pubError.publish(error_msg)
+            end_time = time.time()
+            rospy.loginfo('Runtime of the controller program is ' + str(end_time - start_time))
+        else: 
+            pass
 
-        if gmm_info is False:
-            control_with_no_gmm()
+        r_control.sleep()
 
-        else:
-            control_with_gmm()
 
-        # end_time = time.time()
-        # rospy.loginfo('Runtime of the program is ' + str(end_time - start_time))
+def measure():
+    # error related
+    global squared_error, error_plt, speed_plt, a_speed_plt, t_plt, gazebo_odom, cmd_vel_msg
 
-        r.sleep()
+    global path_following_finish, calc, plot_finish
 
+    r_measure = rospy.Rate(10)
+
+    while not rospy.is_shutdown():
+        if not path_following_finish: 
+            if init: 
+                start_time = time.time()
+
+                squared_error = np.append(squared_error, np.power(get_err_position(gazebo_odom.pose.pose.position.x, gazebo_odom.pose.pose.position.y), 2)) 
+                speed_plt = np.append(speed_plt, cmd_vel_msg.linear.x)
+                a_speed_plt = np.append(a_speed_plt, cmd_vel_msg.angular.z)
+                error_plt = np.append(error_plt, get_err_position(gazebo_odom.pose.pose.position.x, gazebo_odom.pose.pose.position.y))
+                t_plt = np.append(t_plt, time.time() - path_following_start_time)
+                
+                end_time = time.time()
+                rospy.loginfo('Runtime of the measurement program is ' + str(end_time - start_time))
+        else: 
+            if not calc: 
+                final_calculation()
+                calc = True
+
+            if not plot_finish: 
+                result_plot()
+                plot_finish = True
+
+        r_measure.sleep()
 
 # Main function
 if __name__ == '__main__':
@@ -755,7 +828,7 @@ if __name__ == '__main__':
     control_thread = threading.Thread(target=control)
     control_thread.start()
 
-    # calculation_thread = threading.Thread(target=control)
-    # calculation_thread.start()
+    measure_thread = threading.Thread(target=measure)
+    measure_thread.start()
 
     rospy.spin()
