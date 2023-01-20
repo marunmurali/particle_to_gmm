@@ -45,7 +45,7 @@ gmm_flag = rospy.get_param('gmm')
 n_gmm = rospy.get_param('num_of_gmm_dist')
 
 ## DWA parameters
-dwa_horizon_param = 10
+dwa_horizon_param = 20
 
 ## Spec of lidar
 lidar_range_min = 0.16
@@ -160,7 +160,6 @@ pubCmd = rospy.Publisher('cmd_vel', Twist, queue_size=10)
 cmd_vel_msg = Twist()
 
 ## Error data
-error_msg = Point()
 error_plt = np.empty(0)
 speed_plt = np.empty(0)
 a_speed_plt = np.empty(0)
@@ -506,7 +505,7 @@ def path_following(original_heading):
 
         # print(str((goal.x - gmm_mean_matrix[0][i]) * (goal.x - start_point.x) + (goal.y - gmm_mean_matrix[1][i]) * (goal.y - start_point.y)))
 
-        if ((goal.x - gmm_mean_matrix[0][i]) * (goal.x - start_point.x) + (goal.y - gmm_mean_matrix[1][i]) * (goal.y - start_point.y)) <= 0: 
+        if ((goal.x - gmm_mean_matrix[0][i]) * (goal.x - start_point.x) + (goal.y - gmm_mean_matrix[1][i]) * (goal.y - start_point.y) / linear_distance(goal.x, start_point.x, goal.y, start_point.y)) <= 0.1: 
             path_following_finish = True
 
     if path_following_finish is False:
@@ -699,14 +698,16 @@ def sub_conv(x):
     return x
 
 def sub2_conv(x): 
-    return 0.1 * x
+    return 0.2 * x
 
 def sub2_rev(x): 
-    return 10.0 * x
+    return 5.0 * x
 
 
 def result_plot(): 
     global t_plt, error_plt, speed_plt, a_speed_plt
+
+    plt.rcParams['figure.figsize'] = 8, 5.5
 
     fig, ax = plt.subplots(constrained_layout=True)
 
@@ -722,22 +723,28 @@ def result_plot():
 
     # ax.plot(plt_x_2, speed_plt, label='error (distance to the reference line)')
 
+
+    ax.set_xlim(0, 100)
+    ax.set_ylim(-0.5, 0.5)
+
     ax.plot(t_plt, error_plt, label='error (distance to the reference line)', color='r')
-    ax.plot(t_plt, speed_plt, label='speed command', color='g')
-    ax.plot(t_plt, a_speed_plt, label='angular speed command', color='b')
+    ax.plot(t_plt, speed_plt, label='speed command', color='g', linestyle ="dashed")
+    ax.plot(t_plt, 5.0 * a_speed_plt, label='angular speed command', color='b', linestyle="dotted")
 
     ax.set_xlabel('t/s')
     ax.set_ylabel('error/m')
-    ax.set_title('DWA controller path following error')
-    ax.yaxis.set_minor_locator(MultipleLocator(5))
+    ax.set_title('DWA-with-GMM controller path following', fontsize=14)
+    ax.yaxis.set_major_locator(MultipleLocator(0.1))
 
     ax_sub = ax.secondary_yaxis('right', functions=(sub_conv, sub_conv))
     ax_sub.set_ylabel('speed/(m/s)')
-    ax_sub.yaxis.set_minor_locator(MultipleLocator(5))
+    # ax_sub.yaxis.set_major_locator(MultipleLocator(0.1))
 
     ax_sub2 = ax.secondary_yaxis(1.2, functions=(sub2_conv, sub2_rev))
     ax_sub2.set_ylabel('angular speed/(rad/s)')
-    ax_sub2.yaxis.set_minor_locator(MultipleLocator(5))
+    # ax_sub2.yaxis.set_major_locator(MultipleLocator(0.1))
+
+    ax.legend()
 
     plt.show()
 
@@ -782,21 +789,16 @@ def measure():
                 t_plt = np.append(t_plt, time.time() - path_following_start_time)
                 
                 end_time = time.time()
-                rospy.loginfo('Runtime of the measurement program is ' + str(end_time - start_time))
-        else: 
-            if not calc: 
-                final_calculation()
-                calc = True
+                # rospy.loginfo('Runtime of the measurement program is ' + str(end_time - start_time))
 
-            if not plot_finish: 
-                result_plot()
-                plot_finish = True
 
         r_measure.sleep()
 
 # Main function
 if __name__ == '__main__':
     global goal_heading_angle, k, b
+
+    final = False
 
     rospy.init_node('gmm_controller', anonymous=True)
 
@@ -831,4 +833,9 @@ if __name__ == '__main__':
     measure_thread = threading.Thread(target=measure)
     measure_thread.start()
 
-    rospy.spin()
+    while not rospy.is_shutdown():
+        if path_following_finish: 
+            if not final: 
+                final_calculation()
+                result_plot()
+                final = True

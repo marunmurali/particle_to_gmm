@@ -4,10 +4,10 @@
   <!-- Route 1 -->
   <!-- <arg name="x_pos" default="37.0"/>
   <arg name="y_pos" default="-97.0"/> -->
-    <arg name="x_pos" default="35.0"/>
-  <arg name="y_pos" default="-95.5"/>
+  <arg name="x_pos" default="35.0"/>
+  <arg name="y_pos" default="-96.0"/>
   <arg name="z_pos" default="0.0"/>
-  <arg name="yaw" default="0.5096"/>
+  <arg name="yaw" default="0.588"/>
   
   <!-- Route 2 -->
   <!-- <arg name="x_pos" default="8.0"/>

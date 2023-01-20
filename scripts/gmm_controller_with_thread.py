@@ -58,8 +58,10 @@ import numpy as np
 from numpy import linalg
 from sklearn import mixture
 from functools import partial
-# import matplotlib as mpl
-# import matplotlib.pyplot as plt
+import matplotlib as mpl
+import matplotlib.pyplot as plt
+from matplotlib.ticker import (MultipleLocator, AutoMinorLocator)
+
 
 # ROS libraries
 from std_msgs.msg import String
@@ -86,10 +88,7 @@ goal_y = rospy.get_param('goal_y')
 
 no_gmm_speed = rospy.get_param('no_gmm_speed')
 
-k = (goal_y - orient_y) / (goal_x - orient_x)
-b = orient_y - k * orient_x
 
-orient_ref = -np.arctan2(goal_x - orient_x, goal_y - orient_y)
 
 ## Robot position ground truth
 gazebo_odom = Odometry()
@@ -111,14 +110,15 @@ gmm_weight = None
 odom = Odometry()
 
 gazebo_odom = Odometry()
+gazebo_info = False
 
 start_flag = False
 stop_flag = False
 
-start_time = 0.0
+path_following_start_time = None
 
-mse_list = []
-mse_calculation = False
+# mse_list = []
+# mse_calculation = False
 
 # For corridor (later to be changed to parameter)
 # count_time = 50.0
@@ -127,17 +127,16 @@ mse_calculation = False
 count_time = 80.0
 
 ## Error data
-error_msg = Point()
+# error_msg = Point()
 
-# # New error data 
-# error_msg_new = np.zeros(10000, 3)
-# # linear, angular, time
+cmd_vel_msg = Twist()
 
-# error_msg_pos = 0
+error_plt = np.empty(0)
+speed_plt = np.empty(0)
+a_speed_plt = np.empty(0)
+t_plt = np.empty(0)
+squared_error = np.empty(0)
 
-# previous_time = 0.0
-
-error_mse = 0.0
 
 # Methods
 
@@ -238,8 +237,10 @@ def control_with_gmm(means, covariances, weights, amcl_pose, odom):
 
     global stop_flag
 
+    global cmd_vel_msg
+
     pubCmd = rospy.Publisher('cmd_vel', Twist, queue_size=10)
-    pubError = rospy.Publisher('error', Point, queue_size=10)
+    # pubError = rospy.Publisher('error', Point, queue_size=10)
 
 
     linear_cmd = 0.0
@@ -307,8 +308,8 @@ def control_with_gmm(means, covariances, weights, amcl_pose, odom):
 
         linear_cmd += 0.25
 
-        if linear_cmd < 0.15: 
-            linear_cmd = 0.15
+        if linear_cmd < 0.1: 
+            linear_cmd = 0.1
 
         if linear_cmd > 0.25: 
             linear_cmd = 0.25
@@ -337,22 +338,22 @@ def control_with_gmm(means, covariances, weights, amcl_pose, odom):
 
         # rospy.loginfo('controlling w/o gmm')
 
-    xForError = gazebo_odom.pose.pose.position.x
-    yForError = gazebo_odom.pose.pose.position.y
+    # xForError = gazebo_odom.pose.pose.position.x
+    # yForError = gazebo_odom.pose.pose.position.y
 
-    position_error = get_err_position(xForError, yForError)
+    # position_error = get_err_position(xForError, yForError)
 
-    zForError = amcl_pose.pose.pose.orientation.z
-    wForError = amcl_pose.pose.pose.orientation.w   
+    # zForError = amcl_pose.pose.pose.orientation.z
+    # wForError = amcl_pose.pose.pose.orientation.w   
 
-    theta_error = quaternion_to_rad(zForError, wForError)
+    # theta_error = quaternion_to_rad(zForError, wForError)
 
-    orientation_error = get_err_orient(theta_error)
+    # orientation_error = get_err_orient(theta_error)
 
     # rospy.loginfo('linear error: ' + str(error_msg.x))
     # rospy.loginfo('angular error: ' + str(error_msg.y))
 
-    dist_goal = np.sqrt(np.power(x - goal_x, 2) + np.power(y - goal_y, 2))
+    # dist_goal = np.sqrt(np.power(x - goal_x, 2) + np.power(y - goal_y, 2))
 
     # rospy.loginfo('linear command: ' + str(linear_cmd))
     # rospy.loginfo('angular command: ' + str(angular_cmd))
@@ -360,8 +361,6 @@ def control_with_gmm(means, covariances, weights, amcl_pose, odom):
     # rospy.loginfo('x coordinate: ' + str(x) + '; y coordinate: ' + str(y))
 
     # Controlling of the robot
-
-    cmd_vel_msg = Twist()
 
     cmd_vel_msg.linear.x = linear_cmd
     # cmd_vel_msg.linear.x = 0.20 + linear_cmd + 0.1 * (np.random.random(1) - 0.5)
@@ -380,12 +379,12 @@ def control_with_gmm(means, covariances, weights, amcl_pose, odom):
         #     path_following_finish = True
             x = m[0]
             y = m[1]
-            if ((goal_x - x) * (goal_x - orient_x) + (goal_y - y) * (goal_y - orient_y)) <= 0: 
+            if ((goal_x - x) * (goal_x - orient_x) + (goal_y - y) * (goal_y - orient_y)) / linear_distance(goal_x, orient_x, goal_y, orient_y) <= 0.1: 
                 stop_flag = True   
     else: 
         x = amcl_pose.pose.pose.position.x
         y = amcl_pose.pose.pose.position.y
-        if ((goal_x - x) * (goal_x - orient_x) + (goal_y - y) * (goal_y - orient_y)) <= 0: 
+        if ((goal_x - x) * (goal_x - orient_x) + (goal_y - y) * (goal_y - orient_y)) / linear_distance(goal_x, orient_x, goal_y, orient_y) <= 0.1: 
             stop_flag = True   
 
 
@@ -396,28 +395,12 @@ def control_with_gmm(means, covariances, weights, amcl_pose, odom):
         cmd_vel_msg.linear.x = 0.0
         cmd_vel_msg.angular.z = 0.0
     
-    error_msg.x = position_error
-    error_msg.y = cmd_vel_msg.linear.x
+    # error_msg.x = position_error
+    # error_msg.y = cmd_vel_msg.linear.x
     
     pubCmd.publish(cmd_vel_msg)
-    pubError.publish(error_msg)
+    # pubError.publish(error_msg)
 
-    # For calculation of MSE
-
-    if mse_calculation == 0:
-        time_elapsed = rospy.get_time() - start_time
-        # if time_elapsed >= count_time: 
-        if (stop_flag == 1) and (mse_calculation == False): 
-            mse_calculation = True
-
-            error_mse = np.mean(mse_list)
-
-            rospy.loginfo('MSE = ' + str(error_mse))
-
-            rospy.loginfo('Travel time = ' + str(time_elapsed) + "s")
-
-        if time_elapsed > 0.1: 
-            mse_list.append(np.power(position_error, 2))
 
     
 def control_with_no_info(): 
@@ -426,7 +409,7 @@ def control_with_no_info():
 
     pubError = rospy.Publisher('error', Point, queue_size=10)
 
-    global error_msg, odom
+    global error_msg, odom, cmd_vel_msg
 
     # xForError = odom.pose.pose.position.x
     # yForError = odom.pose.pose.position.y
@@ -434,7 +417,7 @@ def control_with_no_info():
     # error_msg.x = get_err_position(xForError, yForError)
     # error_msg.y = 0.0
 
-    cmd_vel_msg = Twist()
+    # cmd_vel_msg = Twist()
 
     cmd_vel_msg.linear.x = 0.05
     
@@ -466,25 +449,6 @@ def callback_amcl_pose(data):
     # rospy.loginfo('received amcl_pose')
     amcl_pose = data; 
 
-    # new_amcl_pose = amcl_pose
-
-    # r = 0.1 * np.random.randn()
-
-    # direction = 2 * np.pi * np.random.random(1)
-
-    # new_amcl_pose.pose.pose.position.x += r * np.cos(direction)
-    # new_amcl_pose.pose.pose.position.y += r * np.sin(direction)
-
-    # orient = quaternion_to_rad(new_amcl_pose.pose.pose.orientation.z, new_amcl_pose.pose.pose.orientation.w)
-
-    # orient += np.pi / 18 * np.random.randn()
-
-    # new_amcl_pose.pose.pose.orientation.z = rad_to_quaternion(orient)[2]
-
-    # new_amcl_pose.pose.pose.orientation.w = rad_to_quaternion(orient)[3]
-
-    # repub_amcl_pose.publish(new_amcl_pose)
-
 
 def callback_odom(data): 
     global odom
@@ -492,18 +456,19 @@ def callback_odom(data):
 
 
 def callback_gazebo_odom(data): 
-    global gazebo_odom
+    global gazebo_odom, gazebo_info
     gazebo_odom = data
- 
+    gazebo_info = True
+
 
 def control(): 
-    global start_time, start_flag
+    global path_following_start_time, start_flag
 
     r = rospy.Rate(10)
 
     while not rospy.is_shutdown(): 
         if not start_flag: 
-            start_time = rospy.get_time()
+            path_following_start_time = time.time()
             start_flag = True
             
         if gmm_mean is None or gmm_covariance is None or gmm_weight is None: 
@@ -513,15 +478,126 @@ def control():
         r.sleep()
 
 
+def measure():
+    # error related
+    global squared_error, error_plt, speed_plt, a_speed_plt, t_plt, gazebo_odom, cmd_vel_msg
+
+    global start_flag, stop_flag, calc, plot_finish
+
+    global path_following_start_time
+
+    r_measure = rospy.Rate(10)
+
+    while not rospy.is_shutdown():
+        if not stop_flag: 
+            if start_flag and gazebo_info: 
+                # start_time = time.time()
+
+                squared_error = np.append(squared_error, np.power(get_err_position(gazebo_odom.pose.pose.position.x, gazebo_odom.pose.pose.position.y), 2)) 
+                speed_plt = np.append(speed_plt, cmd_vel_msg.linear.x)
+                a_speed_plt = np.append(a_speed_plt, cmd_vel_msg.angular.z)
+                error_plt = np.append(error_plt, get_err_position(gazebo_odom.pose.pose.position.x, gazebo_odom.pose.pose.position.y))
+                t_plt = np.append(t_plt, time.time() - path_following_start_time)
+                
+                end_time = time.time()
+                # rospy.loginfo('Runtime of the measurement program is ' + str(end_time - start_time))
+
+
+        r_measure.sleep()
+
+
+# For 1st secondary axis, convert and revert share the same function. 
+def sub_conv(x): 
+    return x
+
+def sub2_conv(x): 
+    return 0.2 * x
+
+def sub2_rev(x): 
+    return 5.0 * x
+
+
+def result_plot(): 
+    global t_plt, error_plt, speed_plt, a_speed_plt
+
+    plt.rcParams['figure.figsize'] = 8, 5.5
+
+    fig, ax = plt.subplots(constrained_layout=True)
+
+    # plt_x_1 = np.empty(0)
+    # for i in range(len(error_plt)): 
+    #     plt_x_1 = np.append(plt_x_1, 0.1 * (i + 1))
+
+    # plt_x_2 = np.empty(0)
+    # for i in range(len(speed_plt)): 
+    #     plt_x_2 = np.append(plt_x_2, 0.1 * (i + 1))
+
+    # ax.plot(plt_x_1, error_plt, label='error (distance to the reference line)')
+
+    # ax.plot(plt_x_2, speed_plt, label='error (distance to the reference line)')
+
+
+    ax.set_xlim(0, 100)
+    ax.set_ylim(-0.5, 0.5)
+
+    ax.plot(t_plt, error_plt, label='error (distance to the reference line)', color='r')
+    ax.plot(t_plt, speed_plt, label='speed command', color='g', linestyle ="dashed")
+    ax.plot(t_plt, 5.0 * a_speed_plt, label='angular speed command', color='b', linestyle="dotted")
+
+    ax.set_xlabel('t/s')
+    ax.set_ylabel('error/m')
+
+    if gmm_flag: 
+        ax.set_title('State-Feedback-with-GMM controller path following', fontsize=14)
+    else: 
+        ax.set_title('State-Feedback-without-GMM controller path following', fontsize=14)
+    ax.yaxis.set_major_locator(MultipleLocator(0.1))
+
+    ax_sub = ax.secondary_yaxis('right', functions=(sub_conv, sub_conv))
+    ax_sub.set_ylabel('speed/(m/s)')
+    # ax_sub.yaxis.set_major_locator(MultipleLocator(0.1))
+
+    ax_sub2 = ax.secondary_yaxis(1.2, functions=(sub2_conv, sub2_rev))
+    ax_sub2.set_ylabel('angular speed/(rad/s)')
+    # ax_sub2.yaxis.set_major_locator(MultipleLocator(0.1))
+
+    ax.legend()
+
+    plt.show()
+
+
+def final_calculation(): 
+    global squared_error
+
+    path_following_end_time = time.time()
+    
+    error_mse = np.average(squared_error)
+
+    path_following_time = path_following_end_time - path_following_start_time
+
+    rospy.loginfo(str(path_following_start_time))
+
+    rospy.loginfo('Path following time = ' + str(path_following_time) + 's. ')
+    rospy.loginfo('MSE of error = ' + str(error_mse) + 'm^2')
+
+
 # Main method
 
 if __name__ == '__main__':
-
     # Was trying to run controlling at a certain rate
     # rospy.init_node('state_feedback', anonymous=True)
     # rate = rospy.Rate(5) # ROS Rate at 5Hz
 
     rospy.init_node('gmm_controller', anonymous=True)
+    
+    global k, b, orient_ref
+
+    final = False
+
+    k = (goal_y - orient_y) / (goal_x - orient_x)
+    b = orient_y - k * orient_x
+
+    orient_ref = -np.arctan2(goal_x - orient_x, goal_y - orient_y)
     
     sub_mean = rospy.Subscriber('gmm_mean', Float64MultiArray, callback_gmm_mean)
     sub_cov = rospy.Subscriber('gmm_covar', Float64MultiArray, callback_gmm_covar)
@@ -534,10 +610,18 @@ if __name__ == '__main__':
     pub = threading.Thread(target=control)
     pub.start()
 
-    if gmm_flag == True: 
-        rospy.loginfo('running with GMM')
-    else: 
-        rospy.loginfo('running without GMM')
-        rospy.loginfo('speed: ' + str(no_gmm_speed))
+    measure_thread = threading.Thread(target=measure)
+    measure_thread.start()
 
-    rospy.spin()
+    if gmm_flag == True: 
+        rospy.loginfo('Running with GMM')
+    else: 
+        rospy.loginfo('Running without GMM')
+        rospy.loginfo('control speed: ' + str(no_gmm_speed))
+
+    while not rospy.is_shutdown():
+        if stop_flag: 
+            if not final: 
+                final_calculation()
+                result_plot()
+                final = True

@@ -20,9 +20,11 @@
 
   <!-- campus route 1-->
   <arg name="orient_x" default="35.0"/>
-  <arg name="orient_y" default="-95.5"/>
-  <arg name="goal_x" default="52.0"/>
-  <arg name="goal_y" default="-86.0"/>
+  <arg name="orient_y" default="-96.0"/>
+  <arg name="goal_x" default="38.0"/>
+  <arg name="goal_y" default="-94.0"/>
+  <!-- <arg name="goal_x" default="53.0"/>
+  <arg name="goal_y" default="-84.0"/> -->
 
   <!-- campus route 2-->
   <!-- <arg name="orient_x" default="8.0"/>

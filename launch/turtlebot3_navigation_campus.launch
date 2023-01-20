@@ -12,8 +12,8 @@
   <!-- <arg name="x" default="37.0"/>
   <arg name="y" default="-97.0"/>     -->
   <arg name="x" default="35.0"/>
-  <arg name="y" default="-95.5"/>   
-  <arg name="a" default="0.5096"/> 
+  <arg name="y" default="-96.0"/>   
+  <arg name="a" default="0.588"/> 
 
   <!-- campus route 2-->
   <!-- <arg name="x" default="8.0"/>
