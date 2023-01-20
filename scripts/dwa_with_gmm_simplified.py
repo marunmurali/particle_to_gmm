@@ -40,6 +40,17 @@ from sensor_msgs.msg import LaserScan
 
 # Global variables
 
+## Information of goal set in RViz
+start_point = Point()
+start_point.x= rospy.get_param('orient_x')
+start_point.y= rospy.get_param('orient_y')
+
+goal = Point()
+goal.x = rospy.get_param('goal_x')
+goal.y = rospy.get_param('goal_y')
+
+# Here we suppose that k doesn't equal to 0 or inf.  
+
 ## ROS parameters
 gmm_flag = rospy.get_param('gmm')
 n_gmm = rospy.get_param('num_of_gmm_dist')
@@ -103,16 +114,6 @@ path_following_start_time = None
 gmm_time = None
 # dwa_time = None
 
-## Information of goal set in RViz
-start_point = Point()
-start_point.x= rospy.get_param('orient_x')
-start_point.y= rospy.get_param('orient_y')
-
-goal = Point()
-goal.x = rospy.get_param('goal_x')
-goal.y = rospy.get_param('goal_y')
-
-# Here we suppose that k doesn't equal to 0 or inf.  
 # (k, b) = (0.0, 0.0)
 
 
@@ -220,6 +221,10 @@ def get_err_position(x, y):
     # rospy.loginfo('linear_error = ' + str(d))
     
     return d
+
+
+def scalar_product(x1, x2, y1, y2): 
+    return (x1 * x2 + y1 * y2)
     
 
 # Data type conversion
@@ -238,15 +243,13 @@ def _multiarray_to_numpy(pytype, dtype, multiarray):
 
 
 to_multiarray_f64 = partial(_numpy_to_multiarray, Float64MultiArray)
-
-
 to_numpy_f64 = partial(_multiarray_to_numpy, float, np.float64)
 
 
 def gmm_process():
-    global gmm_info
+    global gmm_mean_matrix, gmm_weight_matrix
 
-    global gmm_time
+    global gmm_info, gmm_time
 
     if (gmm_mean is None) or (gmm_covariance is None) or (gmm_weight is None):
         pass
@@ -503,9 +506,11 @@ def path_following(original_heading):
         # if linear_distance(gmm_mean_matrix[0][i], goal.x, gmm_mean_matrix[1][i], goal.y) < 0.1:
         #     path_following_finish = True
 
-        # print(str((goal.x - gmm_mean_matrix[0][i]) * (goal.x - start_point.x) + (goal.y - gmm_mean_matrix[1][i]) * (goal.y - start_point.y)))
+        d = scalar_product(goal.x - gmm_mean_matrix[0][i], goal.x - start_point.x, goal.y - gmm_mean_matrix[1][i], goal.y - start_point.y) / linear_distance(goal.x, start_point.x, goal.y, start_point.y)
 
-        if ((goal.x - gmm_mean_matrix[0][i]) * (goal.x - start_point.x) + (goal.y - gmm_mean_matrix[1][i]) * (goal.y - start_point.y) / linear_distance(goal.x, start_point.x, goal.y, start_point.y)) <= 0.1: 
+        rospy.loginfo(str(i) + "scalar product = " + str(d))
+
+        if d < 0.0: 
             path_following_finish = True
 
     if path_following_finish is False:
@@ -738,11 +743,11 @@ def result_plot():
 
     ax_sub = ax.secondary_yaxis('right', functions=(sub_conv, sub_conv))
     ax_sub.set_ylabel('speed/(m/s)')
-    # ax_sub.yaxis.set_major_locator(MultipleLocator(0.1))
+    ax_sub.yaxis.set_major_locator(MultipleLocator(0.1))
 
-    ax_sub2 = ax.secondary_yaxis(1.2, functions=(sub2_conv, sub2_rev))
+    ax_sub2 = ax.secondary_yaxis(1.15, functions=(sub2_conv, sub2_rev))
     ax_sub2.set_ylabel('angular speed/(rad/s)')
-    # ax_sub2.yaxis.set_major_locator(MultipleLocator(0.1))
+    ax_sub2.yaxis.set_major_locator(MultipleLocator(0.02))
 
     ax.legend()
 
@@ -762,7 +767,7 @@ def control():
                 control_with_gmm()
 
             end_time = time.time()
-            rospy.loginfo('Runtime of the controller program is ' + str(end_time - start_time))
+            # rospy.loginfo('Runtime of the controller program is ' + str(end_time - start_time))
         else: 
             pass
 

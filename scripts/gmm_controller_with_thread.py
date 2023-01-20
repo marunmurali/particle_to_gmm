@@ -171,6 +171,10 @@ def rad_to_quaternion(rad):
     return quaternion
 
 
+def scalar_product(x1, x2, y1, y2): 
+    return (x1 * x2 + y1 * y2)
+
+
 # Data type conversion
 def _numpy_to_multiarray(multiarray_type, np_array):
     multiarray = multiarray_type()
@@ -379,12 +383,17 @@ def control_with_gmm(means, covariances, weights, amcl_pose, odom):
         #     path_following_finish = True
             x = m[0]
             y = m[1]
-            if ((goal_x - x) * (goal_x - orient_x) + (goal_y - y) * (goal_y - orient_y)) / linear_distance(goal_x, orient_x, goal_y, orient_y) <= 0.1: 
+
+            d = scalar_product(goal_x - x, goal_x - orient_x, goal_y - y, goal_y - orient_y) / linear_distance(goal_x, orient_x, goal_y, orient_y)
+
+            if d < 0.1: 
                 stop_flag = True   
     else: 
         x = amcl_pose.pose.pose.position.x
         y = amcl_pose.pose.pose.position.y
-        if ((goal_x - x) * (goal_x - orient_x) + (goal_y - y) * (goal_y - orient_y)) / linear_distance(goal_x, orient_x, goal_y, orient_y) <= 0.1: 
+
+        d = scalar_product(goal_x - x, goal_x - orient_x, goal_y - y, goal_y - orient_y) / linear_distance(goal_x, orient_x, goal_y, orient_y)
+        if d < 0.1: 
             stop_flag = True   
 
 
@@ -419,7 +428,7 @@ def control_with_no_info():
 
     # cmd_vel_msg = Twist()
 
-    cmd_vel_msg.linear.x = 0.05
+    cmd_vel_msg.linear.x = 0.01
     
     pubCmd.publish(cmd_vel_msg)
 
@@ -546,20 +555,20 @@ def result_plot():
 
     ax.set_xlabel('t/s')
     ax.set_ylabel('error/m')
+    ax.yaxis.set_major_locator(MultipleLocator(0.1))
 
     if gmm_flag: 
         ax.set_title('State-Feedback-with-GMM controller path following', fontsize=14)
     else: 
         ax.set_title('State-Feedback-without-GMM controller path following', fontsize=14)
-    ax.yaxis.set_major_locator(MultipleLocator(0.1))
 
     ax_sub = ax.secondary_yaxis('right', functions=(sub_conv, sub_conv))
     ax_sub.set_ylabel('speed/(m/s)')
-    # ax_sub.yaxis.set_major_locator(MultipleLocator(0.1))
+    ax_sub.yaxis.set_major_locator(MultipleLocator(0.1))
 
-    ax_sub2 = ax.secondary_yaxis(1.2, functions=(sub2_conv, sub2_rev))
+    ax_sub2 = ax.secondary_yaxis(1.15, functions=(sub2_conv, sub2_rev))
     ax_sub2.set_ylabel('angular speed/(rad/s)')
-    # ax_sub2.yaxis.set_major_locator(MultipleLocator(0.1))
+    ax_sub2.yaxis.set_major_locator(MultipleLocator(0.02))
 
     ax.legend()
 
