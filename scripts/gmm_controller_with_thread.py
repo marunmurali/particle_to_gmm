@@ -297,26 +297,18 @@ def control_with_gmm(means, covariances, weights, amcl_pose, odom):
             k1 = k1 * np.abs(np.cos(orientation_err))
             
             cmd3 = k3 * l1
-
-            # if np.abs(cmd3) > 0.25: 
-            #     cmd3 = cmd3 * 0.25 / np.abs(cmd3)
-
             cmd4 = k4 * l2
 
-            # if np.abs(cmd4) > 0.25: 
-            #     cmd4 = cmd4 * 0.25 / np.abs(cmd4)
-
             angular_cmd += weight * (k1 * x_err + k2 * orientation_err) 
-
             linear_cmd += weight * (cmd3 + cmd4)
 
-        linear_cmd += 0.25
+        linear_cmd += 0.26
 
         if linear_cmd < 0.1: 
             linear_cmd = 0.1
 
-        if linear_cmd > 0.25: 
-            linear_cmd = 0.25
+        if linear_cmd > 0.26: 
+            linear_cmd = 0.26
            
         # rospy.loginfo('speed: ' + str(linear_cmd))
         
@@ -386,14 +378,14 @@ def control_with_gmm(means, covariances, weights, amcl_pose, odom):
 
             d = scalar_product(goal_x - x, goal_x - orient_x, goal_y - y, goal_y - orient_y) / linear_distance(goal_x, orient_x, goal_y, orient_y)
 
-            if d < 0.1: 
+            if d < 0.0: 
                 stop_flag = True   
     else: 
         x = amcl_pose.pose.pose.position.x
         y = amcl_pose.pose.pose.position.y
 
         d = scalar_product(goal_x - x, goal_x - orient_x, goal_y - y, goal_y - orient_y) / linear_distance(goal_x, orient_x, goal_y, orient_y)
-        if d < 0.1: 
+        if d < 0.0: 
             stop_flag = True   
 
 
