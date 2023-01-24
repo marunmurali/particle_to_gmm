@@ -17,8 +17,9 @@
 
 Contains a python file running in ROS that can convert a set of pose messages (such as that are published from an AMCL localization node) into a GMM distribution. The GMM means and covariances are published as ros messages.
 
-A visualisation node is also added to see the gmm as ellipses.
+A visualization node is also added to see the gmm as ellipses.
 
+Controllers of state feedback and Dynamic Window Approach, making use of the GMM result are also included. 
 
 ## Technologies Used
 - ROS
@@ -27,7 +28,7 @@ A visualisation node is also added to see the gmm as ellipses.
 - Python
   - Numpy (for eigenvalues and eigenvectors)
   - Scikit (for GMM)
-  <!-- - matplotlib -->
+  - matplotlib
 
 
 ## Features

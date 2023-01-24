@@ -1,5 +1,7 @@
 # The things to do before running particle_to_gmm
 
+Note that it's been out of date. 
+
 ## Turtlebot3_simulation (gazebo) setup
 
 1. Copy the `turtlebot3_simulations` folder to `catkin_ws/src`, while merging
