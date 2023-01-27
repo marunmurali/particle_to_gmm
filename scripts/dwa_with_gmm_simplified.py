@@ -25,7 +25,7 @@ import time
 import math
 import numpy as np
 from functools import partial
-import matplotlib as mpl
+# import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib.ticker import (MultipleLocator, AutoMinorLocator)
 import statistics
@@ -54,6 +54,7 @@ goal.y = rospy.get_param('goal_y')
 ## ROS parameters
 gmm_flag = rospy.get_param('gmm')
 n_gmm = rospy.get_param('num_of_gmm_dist')
+swflag = rospy.get_param("squared_weight")
 
 ## DWA parameters
 dwa_horizon_param = 20
@@ -477,17 +478,35 @@ def path_following(original_heading):
 
     (final_optimal_v, final_optimal_a) = (0.0, 0.0)
     
-    for i in range(3):
-
-        # rospy.loginfo('Minimum of cost function of cluster ' + str(i) + ' is '+ str(cost_function_gmm_cluster[i]))
-
-        # rospy.loginfo('v = ' + str(optimal_v[i]))
-
-        # rospy.loginfo('a = ' + str(optimal_a[i]))
+    if swflag: 
+    
+        sum_squared_weight = 0.0
         
-        if cost_function_gmm_cluster[i] < np.inf: 
-            final_optimal_v += optimal_v[i] * gmm_weight_matrix[i]
-            final_optimal_a += optimal_a[i] * gmm_weight_matrix[i]
+
+        for i in range(n_gmm):
+            if cost_function_gmm_cluster[i] < np.inf: 
+                sw = math.pow(gmm_weight_matrix[i], 2)
+                final_optimal_v += optimal_v[i] * sw
+                final_optimal_a += optimal_a[i] * sw
+
+                sum_squared_weight += sw
+
+        final_optimal_v /= sum_squared_weight
+        final_optimal_a /= sum_squared_weight
+
+    else: 
+        sum_weight = 0.0
+
+        for i in range(n_gmm):
+            if cost_function_gmm_cluster[i] < np.inf: 
+                w = gmm_weight_matrix[i]
+                final_optimal_v += optimal_v[i] * w
+                final_optimal_a += optimal_a[i] * w
+
+                sum_weight += w
+
+        final_optimal_v /= sum_weight
+        final_optimal_a /= sum_weight
 
     if np.abs(v) > 0.26:
         v = v / np.abs(v) * 0.26
@@ -508,7 +527,7 @@ def path_following(original_heading):
 
         d = scalar_product(goal.x - gmm_mean_matrix[0][i], goal.x - start_point.x, goal.y - gmm_mean_matrix[1][i], goal.y - start_point.y) / linear_distance(goal.x, start_point.x, goal.y, start_point.y)
 
-        rospy.loginfo(str(i) + "scalar product = " + str(d))
+        # rospy.loginfo(str(i) + "scalar product = " + str(d))
 
         if d < 0.0: 
             path_following_finish = True
@@ -578,9 +597,11 @@ def final_rotation(original_heading):
 
 
 def final_calculation(): 
-    global error_mse, squared_error
+    global error_mse, squared_error, path_following_start_time
 
     path_following_end_time = time.time()
+
+    # rospy.loginfo(str(path_following_end_time))
     
     error_mse = np.average(squared_error)
 
@@ -588,6 +609,7 @@ def final_calculation():
 
     rospy.loginfo('Path following time = ' + str(path_following_time) + 's. ')
     rospy.loginfo('MSE of error = ' + str(error_mse) + 'm^2')
+    rospy.loginfo('squared: ' + str(swflag))
 
 
 
@@ -606,6 +628,7 @@ def control_with_gmm():
         # initial_rotation(original_x, original_y, original_heading)
         if not init: 
             path_following_start_time = time.time()
+            rospy.loginfo(str(path_following_start_time))
             init = True
 
         initial_rotation(original_heading)

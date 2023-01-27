@@ -167,6 +167,7 @@ catkin_install_python(
   scripts/gmm_controller_with_thread.py scripts/dwa_with_gmm.py
   scripts/particle_to_gmm.py scripts/gmm_visualizer.py
   scripts/test.py scripts/particle_cloud_tuner.py
+  scripts/plot.py scripts/fully_virtual_exp.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 

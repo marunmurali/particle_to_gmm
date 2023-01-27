@@ -258,6 +258,8 @@ def control_with_gmm(means, covariances, weights, amcl_pose, odom):
     orientation_err = get_err_orient(theta)
 
     if gmm_flag: 
+        sum_squared_weight = 0.0
+
         # Path following using GMM
         for i, (m, covar, weight) in enumerate(zip(means, covariances, weights)):
             
@@ -299,9 +301,14 @@ def control_with_gmm(means, covariances, weights, amcl_pose, odom):
             cmd3 = k3 * l1
             cmd4 = k4 * l2
 
-            angular_cmd += weight * (k1 * x_err + k2 * orientation_err) 
-            linear_cmd += weight * (cmd3 + cmd4)
+            angular_cmd += math.pow(weight, 2) * (k1 * x_err + k2 * orientation_err) 
+            linear_cmd += math.pow(weight, 2) * (cmd3 + cmd4)
 
+            sum_squared_weight += math.pow(weight, 2)
+
+        angular_cmd = angular_cmd / sum_squared_weight
+        
+        linear_cmd = linear_cmd / sum_squared_weight
         linear_cmd += 0.26
 
         if linear_cmd < 0.1: 
