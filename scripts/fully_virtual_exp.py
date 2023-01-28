@@ -24,7 +24,7 @@ from geometry_msgs.msg import (Twist, Point, Pose, PoseStamped, PoseWithCovarian
 
 # CONSTANTS
 
-LIN_ERR_COEFF = -0.5
+LIN_ERR_COEFF = -0.1
 ANG_ERR_COEFF = -0.1
 
 NEAR_CLUSTER_DEVIATION = 0.1
@@ -174,29 +174,29 @@ def main():
     mse_gmm_max = np.average(np.square(y_gmm_max))
     mse_amcl = np.average(np.square(y_amcl))
 
-    print("GMM flat: " + str(mse_gmm_flat))
-    print("GMM square: " + str(mse_gmm_square))
+    print("GMM normal: " + str(mse_gmm_flat))
+    print("GMM squared: " + str(mse_gmm_square))
     print("GMM max: " + str(mse_gmm_max))
     print("AMCL: " + str(mse_amcl))
 
     plt.rcParams['figure.figsize'] = 10, 6.5
-    plt.rcParams['font.size'] = 16
+    plt.rcParams['font.size'] = 20
 
     fig, ax = plt.subplots(constrained_layout=True)
 
     ax.set_xlim(0, 20)
     ax.set_ylim(-0.5, 0.5)
 
-    ax.plot(x_gmm_flat, y_gmm_flat, label="gmm(flat)", color='r', linestyle ="dashed")
-    ax.plot(x_gmm_square, y_gmm_square, label="gmm(squared)", color='g', linestyle ="dashed")
-    ax.plot(x_gmm_max, y_gmm_max, label="gmm(max)", color='b', linestyle="dashed")
-    ax.plot(x_amcl, y_amcl, label="no_gmm(amcl)", color='k')
+    ax.plot(x_gmm_flat, y_gmm_flat, label="GMM_nm", color='r', linestyle ="dashed", lw=2)
+    ax.plot(x_gmm_square, y_gmm_square, label="GMM_sq", color='g', linestyle ="dashed", lw=2)
+    ax.plot(x_gmm_max, y_gmm_max, label="GMM_mx", color='b', linestyle="dashed", lw=2)
+    ax.plot(x_amcl, y_amcl, label="nonGMM", color='k', lw=2)
 
     ax.plot([0, 20], [0, 0], color='k', linestyle="dotted")
 
     ax.legend()
 
-    ax.set_title("Paths by different controllers when following the path on the X-axis")
+    ax.set_title("Paths by different controllers following path on X-axis", fontsize=20)
 
     plt.show()
 

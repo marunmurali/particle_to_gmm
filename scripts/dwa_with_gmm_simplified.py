@@ -735,7 +735,8 @@ def sub2_rev(x):
 def result_plot(): 
     global t_plt, error_plt, speed_plt, a_speed_plt
 
-    plt.rcParams['figure.figsize'] = 8, 5.5
+    plt.rcParams['figure.figsize'] = 10, 6.5
+    plt.rcParams["font.size"] = 20
 
     fig, ax = plt.subplots(constrained_layout=True)
 
@@ -755,20 +756,25 @@ def result_plot():
     ax.set_xlim(0, 100)
     ax.set_ylim(-0.5, 0.5)
 
-    ax.plot(t_plt, error_plt, label='error (distance to the reference line)', color='r')
-    ax.plot(t_plt, speed_plt, label='speed command', color='g', linestyle ="dashed")
-    ax.plot(t_plt, 5.0 * a_speed_plt, label='angular speed command', color='b', linestyle="dotted")
+    ax.plot(t_plt, error_plt, label='error (distance to the reference line)', color='r', lw=2)
+    ax.plot(t_plt, speed_plt, label='speed command', color='g', linestyle ="dashed", lw=2)
+    ax.plot(t_plt, 5.0 * a_speed_plt, label='angular speed command', color='b', linestyle="dotted", lw=2)
 
     ax.set_xlabel('t/s')
     ax.set_ylabel('error/m')
-    ax.set_title('DWA-with-GMM controller path following', fontsize=14)
+
+    if swflag: 
+        ax.set_title('DWA_GMM_sq controller path following', fontsize=20)
+    else: 
+        ax.set_title('DWA_GMM_nm controller path following', fontsize=20)
+
     ax.yaxis.set_major_locator(MultipleLocator(0.1))
 
     ax_sub = ax.secondary_yaxis('right', functions=(sub_conv, sub_conv))
     ax_sub.set_ylabel('speed/(m/s)')
     ax_sub.yaxis.set_major_locator(MultipleLocator(0.1))
 
-    ax_sub2 = ax.secondary_yaxis(1.15, functions=(sub2_conv, sub2_rev))
+    ax_sub2 = ax.secondary_yaxis(1.2, functions=(sub2_conv, sub2_rev))
     ax_sub2.set_ylabel('angular speed/(rad/s)')
     ax_sub2.yaxis.set_major_locator(MultipleLocator(0.02))
 

@@ -117,6 +117,8 @@ stop_flag = False
 
 path_following_start_time = None
 
+swflag = True
+
 # mse_list = []
 # mse_calculation = False
 
@@ -301,10 +303,15 @@ def control_with_gmm(means, covariances, weights, amcl_pose, odom):
             cmd3 = k3 * l1
             cmd4 = k4 * l2
 
-            angular_cmd += math.pow(weight, 2) * (k1 * x_err + k2 * orientation_err) 
-            linear_cmd += math.pow(weight, 2) * (cmd3 + cmd4)
+            if swflag: 
+                squared_weight = math.pow(weight, 2)
+            else:
+                squared_weight = weight
+            
+            angular_cmd += squared_weight * (k1 * x_err + k2 * orientation_err) 
+            linear_cmd += squared_weight * (cmd3 + cmd4)
 
-            sum_squared_weight += math.pow(weight, 2)
+            sum_squared_weight += squared_weight
 
         angular_cmd = angular_cmd / sum_squared_weight
         
@@ -528,7 +535,8 @@ def sub2_rev(x):
 def result_plot(): 
     global t_plt, error_plt, speed_plt, a_speed_plt
 
-    plt.rcParams['figure.figsize'] = 8, 5.5
+    plt.rcParams['figure.figsize'] = 10, 6.5
+    plt.rcParams["font.size"] = 20
 
     fig, ax = plt.subplots(constrained_layout=True)
 
@@ -548,24 +556,27 @@ def result_plot():
     ax.set_xlim(0, 100)
     ax.set_ylim(-0.5, 0.5)
 
-    ax.plot(t_plt, error_plt, label='error (distance to the reference line)', color='r')
-    ax.plot(t_plt, speed_plt, label='speed command', color='g', linestyle ="dashed")
-    ax.plot(t_plt, 5.0 * a_speed_plt, label='angular speed command', color='b', linestyle="dotted")
+    ax.plot(t_plt, error_plt, label='error (distance to the reference line)', color='r', lw=2)
+    ax.plot(t_plt, speed_plt, label='speed command', color='g', linestyle ="dashed", lw=2)
+    ax.plot(t_plt, 5.0 * a_speed_plt, label='angular speed command', color='b', linestyle="dotted", lw=2)
 
     ax.set_xlabel('t/s')
     ax.set_ylabel('error/m')
     ax.yaxis.set_major_locator(MultipleLocator(0.1))
 
     if gmm_flag: 
-        ax.set_title('State-Feedback-with-GMM controller path following', fontsize=14)
+        if swflag: 
+            ax.set_title('SF_GMM_sq controller path following', fontsize=20)
+        else: 
+            ax.set_title('SF_GMM_nm controller path following', fontsize=20)  
     else: 
-        ax.set_title('State-Feedback-without-GMM controller path following', fontsize=14)
+        ax.set_title('Conventional controller path following', fontsize=20)
 
     ax_sub = ax.secondary_yaxis('right', functions=(sub_conv, sub_conv))
     ax_sub.set_ylabel('speed/(m/s)')
     ax_sub.yaxis.set_major_locator(MultipleLocator(0.1))
 
-    ax_sub2 = ax.secondary_yaxis(1.15, functions=(sub2_conv, sub2_rev))
+    ax_sub2 = ax.secondary_yaxis(1.2, functions=(sub2_conv, sub2_rev))
     ax_sub2.set_ylabel('angular speed/(rad/s)')
     ax_sub2.yaxis.set_major_locator(MultipleLocator(0.02))
 
@@ -587,6 +598,8 @@ def final_calculation():
 
     rospy.loginfo('Path following time = ' + str(path_following_time) + 's. ')
     rospy.loginfo('MSE of error = ' + str(error_mse) + 'm^2')
+
+    rospy.loginfo('squared: ' + str(swflag))
 
 
 # Main method

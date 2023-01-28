@@ -7,28 +7,32 @@ def tosecaxis(x):
 def reversesecaxis(x): 
     return 0.0001 * x
 
-methods = ["State Feedback with GMM", "State Feedback without GMM", "DWA with GMM"]
+methods = ["Conv", "SF_GMM_nm", "SF_GMM_sq", "DWA_GMM_nm", "DWA_GMM_sq"]
 
 x_pos = np.arange(len(methods))
-means = [0.004064800396, 0.00340337653, 0.006345127083]
-stddev = [0.002558933224, 0.00178111465, 0.003211480271]
-mean_times = [0.0001 * 81.00733027, 0.0001 * 73.05546622, 0.0001 * 92.82284513]
+means = [0.00340, 0.00406, 0.00653, 0.01094, 0.00492]
+stddev = [0.00178, 0.00256, 0.00287, 0.00749, 0.00145]
+mean_times =[73.06 * 0.0001, 81.01 * 0.0001, 80.27 * 0.0001, 81.41 * 0.0001, 77.72 * 0.0001]
 
-fig, ax = plt.subplots(constrained_layout=True, figsize=(9,6))
+plt.rcParams.update({'font.size':  20})
+
+fig, ax = plt.subplots(constrained_layout=True, figsize=(10, 6.5))
 
 ax.bar(x_pos - 0.2, means, 0.4, yerr=stddev, align="center", capsize=5, color='r', label="mean square error")
 ax.bar(x_pos + 0.2, mean_times, 0.4, color = 'b', label="travel time")
 
-plt.xticks(x_pos, methods, rotation=60)
+plt.xticks(x_pos, methods, rotation=60, fontsize=20)
+plt.yticks(fontsize=20)
 
+ax.set_ylim([0, 0.02])
 ax.legend()
 
-ax.set_ylabel("Mean square error/$m^2$)")
+ax.set_ylabel("Mean square error/$m^2$", fontsize=20)
 
 secax_y = ax.secondary_yaxis('right', functions=(tosecaxis, reversesecaxis))
 
-secax_y.set_ylabel("Average path following time/$s$")
+secax_y.set_ylabel("Average path following time/$s$", fontsize=20)
 
-ax.set_title('Comparison of error and travel time of 2 proposed methods and conventional method', fontsize = 14)
+ax.set_title('Comparison of error MSE and travel time', fontsize = 22)
 
 plt.show()
