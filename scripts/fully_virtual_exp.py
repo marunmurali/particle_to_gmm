@@ -190,7 +190,7 @@ def main():
     ax.plot(x_gmm_flat, y_gmm_flat, label="GMM_nm", color='r', linestyle ="dashed", lw=2)
     ax.plot(x_gmm_square, y_gmm_square, label="GMM_sq", color='g', linestyle ="dashed", lw=2)
     ax.plot(x_gmm_max, y_gmm_max, label="GMM_mx", color='b', linestyle="dashed", lw=2)
-    ax.plot(x_amcl, y_amcl, label="nonGMM", color='k', lw=2)
+    ax.plot(x_amcl, y_amcl, label="conv", color='k', lw=2)
 
     ax.plot([0, 20], [0, 0], color='k', linestyle="dotted")
 

@@ -11,7 +11,7 @@ plt.rcParams.update({'font.size':  20})
 
 fig, ax = plt.subplots(constrained_layout=True, figsize=(10, 6.5))
 
-methods = ["GMM_nm", "GMM_sq", "GMM_mx", "Conv"]
+methods = ["GMM_nm", "GMM_sq", "GMM_mx", "conv"]
 
 x_pos = np.arange(len(methods))
 
