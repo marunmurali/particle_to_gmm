@@ -7,12 +7,19 @@ def tosecaxis(x):
 def reversesecaxis(x): 
     return 0.0001 * x
 
-methods = ["Conv", "SF_GMM_nm", "SF_GMM_sq", "DWA_GMM_nm", "DWA_GMM_sq"]
+# methods = ["Conv", "SF_GMM_nm", "SF_GMM_sq", "DWA_GMM_nm", "DWA_GMM_sq"]
+
+# x_pos = np.arange(len(methods))
+# means = [0.00340, 0.00406, 0.00653, 0.01094, 0.00492]
+# stddev = [0.00178, 0.00256, 0.00287, 0.00749, 0.00145]
+# mean_times =[73.06 * 0.0001, 81.01 * 0.0001, 80.27 * 0.0001, 81.41 * 0.0001, 77.72 * 0.0001]
+
+methods = ["SF_GMM_nm", "SF_GMM_sq", "DWA_GMM_nm", "DWA_GMM_sq"]
 
 x_pos = np.arange(len(methods))
-means = [0.00340, 0.00406, 0.00653, 0.01094, 0.00492]
-stddev = [0.00178, 0.00256, 0.00287, 0.00749, 0.00145]
-mean_times =[73.06 * 0.0001, 81.01 * 0.0001, 80.27 * 0.0001, 81.41 * 0.0001, 77.72 * 0.0001]
+means = [0.00406, 0.00653, 0.01094, 0.00492]
+stddev = [0.00256, 0.00287, 0.00749, 0.00145]
+mean_times =[81.01 * 0.0001, 80.27 * 0.0001, 81.41 * 0.0001, 77.72 * 0.0001]
 
 plt.rcParams.update({'font.size':  20})
 

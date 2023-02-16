@@ -24,8 +24,14 @@ from geometry_msgs.msg import (Twist, Point, Pose, PoseStamped, PoseWithCovarian
 
 # CONSTANTS
 
+CONDITION = 1
+
 LIN_ERR_COEFF = -0.1
-ANG_ERR_COEFF = -0.1
+ANG_ERR_COEFF = -0.5
+
+if CONDITION == 2: 
+    ANG_ERR_COEFF = -0.1
+    
 
 NEAR_CLUSTER_DEVIATION = 0.1
 FAR_CLUSTER_DEVIATION = 1.0
@@ -174,6 +180,8 @@ def main():
     mse_gmm_max = np.average(np.square(y_gmm_max))
     mse_amcl = np.average(np.square(y_amcl))
 
+    print("condition: " + str(CONDITION))
+
     print("GMM normal: " + str(mse_gmm_flat))
     print("GMM squared: " + str(mse_gmm_square))
     print("GMM max: " + str(mse_gmm_max))
@@ -191,6 +199,9 @@ def main():
     ax.plot(x_gmm_square, y_gmm_square, label="GMM_sq", color='g', linestyle ="dashed", lw=2)
     ax.plot(x_gmm_max, y_gmm_max, label="GMM_mx", color='b', linestyle="dashed", lw=2)
     ax.plot(x_amcl, y_amcl, label="conv", color='k', lw=2)
+
+    ax.set_xlabel("$x$/m", fontsize=20)
+    ax.set_ylabel("$y$/m", fontsize=20)
 
     ax.plot([0, 20], [0, 0], color='k', linestyle="dotted")
 
